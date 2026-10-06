@@ -43,9 +43,14 @@ export default function Home() {
   const [newPassword, setNewPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [requiresHttps, setRequiresHttps] = useState(false);
   const [tab, setTab] = useState<'today' | 'tomorrow' | 'week'>('today');
 
   useEffect(() => {
+    setRequiresHttps(
+      window.location.protocol === 'http:' &&
+        !['localhost', '127.0.0.1'].includes(window.location.hostname),
+    );
     api<User>('/auth/me')
       .then(setUser)
       .catch(() => setUser(null))
@@ -122,31 +127,39 @@ export default function Home() {
           <p className="muted">
             Расписание, изменения и посещаемость в одном месте.
           </p>
-          <form onSubmit={signIn}>
-            <label>
-              Логин
-              <input
-                value={login}
-                onChange={(e) => setLogin(e.target.value)}
-                autoComplete="username"
-                required
-              />
-            </label>
-            <label>
-              Пароль
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-                required
-              />
-            </label>
-            {error && <p className="error">{error}</p>}
-            <button type="submit" className="primary">
-              Войти
-            </button>
-          </form>
+          {requiresHttps ? (
+            <p className="error">
+              Для входа откройте сайт по HTTPS. Сейчас адрес сервера открыт по
+              HTTP, поэтому вход не сохраняется. После настройки домена
+              используйте https://is2612.ru.
+            </p>
+          ) : (
+            <form onSubmit={signIn}>
+              <label>
+                Логин
+                <input
+                  value={login}
+                  onChange={(e) => setLogin(e.target.value)}
+                  autoComplete="username"
+                  required
+                />
+              </label>
+              <label>
+                Пароль
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  required
+                />
+              </label>
+              {error && <p className="error">{error}</p>}
+              <button type="submit" className="primary">
+                Войти
+              </button>
+            </form>
+          )}
         </section>
       </main>
     );
