@@ -1,3 +1,5 @@
+name: is-2612-group
+
 services:
   postgres:
     image: postgres:16-alpine
