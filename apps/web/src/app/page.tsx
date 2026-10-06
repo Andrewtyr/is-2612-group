@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 
@@ -24,6 +24,15 @@ type Lesson = {
   teacher: { name: string } | null;
 };
 type SyncState = { lastSuccess: string | null; lastError: string | null };
+
+function weekDayLabel(value: string) {
+  return new Intl.DateTimeFormat('ru-RU', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  }).format(new Date(`${value.slice(0, 10)}T12:00:00Z`));
+}
 
 export default function Home() {
   const [user, setUser] = useState<User | null>(null);
@@ -294,38 +303,49 @@ export default function Home() {
             настройки системы.
           </div>
         )}
-        {lessons.map((lesson) => (
-          <article
-            className={`lesson ${lesson.status === 'CANCELLED' ? 'cancelled' : ''}`}
-            key={lesson.id}
-          >
-            <div className="lesson-time">
-              <strong>{lesson.startTime}</strong>
-              <span>{lesson.endTime}</span>
-            </div>
-            <div className="lesson-content">
-              <div className="lesson-top">
-                <span>{lesson.lessonNumber} пара</span>
-                {lesson.status !== 'PLANNED' && (
-                  <em>
-                    {lesson.status === 'CANCELLED' ? 'Отменена' : 'Изменена'}
-                  </em>
-                )}
+        {lessons.map((lesson, index) => (
+          <Fragment key={lesson.id}>
+            {tab === 'week' &&
+              (index === 0 ||
+                lessons[index - 1].date.slice(0, 10) !==
+                  lesson.date.slice(0, 10)) && (
+                <h3 className="week-day-heading">
+                  {weekDayLabel(lesson.date)}
+                </h3>
+              )}
+            <article
+              className={`lesson ${lesson.status === 'CANCELLED' ? 'cancelled' : ''}`}
+            >
+              <div className="lesson-time">
+                <strong>{lesson.startTime}</strong>
+                <span>{lesson.endTime}</span>
               </div>
-              <h3>{lesson.subject?.name ?? 'Предмет не указан'}</h3>
-              <p>
-                {lesson.teacher?.name ?? 'Преподаватель не указан'} ·{' '}
-                {lesson.room ? `каб. ${lesson.room}` : 'кабинет не указан'}
-              </p>
-            </div>
-          </article>
+              <div className="lesson-content">
+                <div className="lesson-top">
+                  <span>{lesson.lessonNumber} пара</span>
+                  {lesson.status !== 'PLANNED' && (
+                    <em>
+                      {lesson.status === 'CANCELLED' ? 'Отменена' : 'Изменена'}
+                    </em>
+                  )}
+                </div>
+                <h3>{lesson.subject?.name ?? 'Предмет не указан'}</h3>
+                <p>
+                  {lesson.teacher?.name ?? 'Преподаватель не указан'} ·{' '}
+                  {lesson.room ? `каб. ${lesson.room}` : 'кабинет не указан'}
+                </p>
+              </div>
+            </article>
+          </Fragment>
         ))}
       </div>
       <nav className="bottom-nav">
         <Link className="selected" href="/">
           Сегодня
         </Link>
+        <Link href="/schedule">Расписание</Link>
         <Link href="/attendance">Посещаемость</Link>
+        <Link href="/notifications">Уведомления</Link>
         {['HEAD', 'DEPUTY', 'CURATOR', 'ADMIN'].includes(user.role) && (
           <Link href="/mark">Отметить</Link>
         )}

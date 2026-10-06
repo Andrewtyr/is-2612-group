@@ -21,6 +21,104 @@ button {
   margin: 0 auto;
   padding: 24px 28px 110px;
 }
+.schedule-date {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.schedule-date input {
+  max-width: 190px;
+}
+.bell-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px 24px;
+}
+.bell-grid div,
+.change-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid #e5eaf0;
+}
+.change-row {
+  flex-direction: column;
+}
+.member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid #e5eaf0;
+}
+.member-row > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+.attendance-record {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.mark-history {
+  margin-top: 10px;
+}
+.notice-tag {
+  color: #a56712;
+  font-weight: 600;
+}
+.reason-row {
+  display: grid;
+  gap: 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e5eaf0;
+}
+.reason-row p {
+  margin: 0;
+}
+.notification-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.notification-card.unread {
+  border-left: 4px solid #315ee8;
+}
+.week-day-heading {
+  margin: 28px 0 6px;
+  color: #243e57;
+  font-size: 18px;
+  text-transform: capitalize;
+}
+.mark-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.mark-choice {
+  border: 1px solid #d5dfec;
+  border-radius: 9px;
+  background: white;
+  color: #33506c;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+.mark-choice.active {
+  border-color: #315ee8;
+  background: #e4ebff;
+  color: #234ccc;
+  font-weight: 700;
+}
+.roster-row .mark-choices select {
+  width: auto;
+  min-width: 112px;
+}
 .topbar,
 .brand,
 .page-head,
@@ -478,6 +576,9 @@ th {
   .roster-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+  .mark-choices {
+    width: 100%;
   }
   .roster-row select {
     max-width: none;

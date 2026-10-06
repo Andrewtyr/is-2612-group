@@ -15,15 +15,8 @@ type Lesson = {
 type Member = {
   student: { id: string; firstName: string; lastName: string };
   attendance: { status: string } | null;
+  preAbsent: boolean;
 };
-const statuses = [
-  ['PRESENT', 'Присутствует'],
-  ['ABSENT', 'Отсутствует'],
-  ['LATE', 'Опоздал'],
-  ['LEFT_EARLY', 'Ушёл раньше'],
-  ['EXCUSED', 'Уважительная'],
-  ['EXEMPT', 'Освобождён'],
-];
 
 export default function MarkPage() {
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -127,27 +120,68 @@ export default function MarkPage() {
           </button>
           <div className="roster">
             {members.map((member) => (
-              <label key={member.student.id} className="roster-row">
+              <div key={member.student.id} className="roster-row">
                 <span>
                   {member.student.lastName} {member.student.firstName}
+                  {member.preAbsent && (
+                    <small className="notice-tag">
+                      {' '}
+                      · сообщил об отсутствии
+                    </small>
+                  )}
                 </span>
-                <select
-                  value={marks[member.student.id] ?? ''}
-                  onChange={(event) =>
-                    setMarks({
-                      ...marks,
-                      [member.student.id]: event.target.value,
-                    })
-                  }
+                <span
+                  className="mark-choices"
+                  role="group"
+                  aria-label={`Посещаемость: ${member.student.lastName} ${member.student.firstName}`}
                 >
-                  <option value="">Не отмечен</option>
-                  {statuses.map(([value, label]) => (
-                    <option key={value} value={value}>
+                  {(
+                    [
+                      ['PRESENT', 'Был'],
+                      ['LATE', 'Опоздал'],
+                      ['ABSENT', 'Отсутствовал'],
+                    ] as const
+                  ).map(([status, label]) => (
+                    <button
+                      key={status}
+                      type="button"
+                      className={`mark-choice ${marks[member.student.id] === status ? 'active' : ''}`}
+                      aria-pressed={marks[member.student.id] === status}
+                      onClick={() =>
+                        setMarks({ ...marks, [member.student.id]: status })
+                      }
+                    >
+                      {marks[member.student.id] === status ? '✓ ' : ''}
                       {label}
-                    </option>
+                    </button>
                   ))}
-                </select>
-              </label>
+                  <select
+                    aria-label="Другой статус"
+                    value={
+                      [
+                        'LEFT_EARLY',
+                        'EXCUSED',
+                        'EXEMPT',
+                        'NEEDS_REVIEW',
+                      ].includes(marks[member.student.id])
+                        ? marks[member.student.id]
+                        : ''
+                    }
+                    onChange={(event) =>
+                      setMarks({
+                        ...marks,
+                        [member.student.id]: event.target.value,
+                      })
+                    }
+                  >
+                    <option value="">Ещё…</option>
+                    <option value="LEFT_EARLY">Ушёл раньше</option>
+                    <option value="EXCUSED">Уважительная</option>
+                    <option value="EXEMPT">Освобождён</option>
+                    <option value="NEEDS_REVIEW">На проверке</option>
+                  </select>
+                </span>
+              </div>
             ))}
           </div>
           <button className="primary" onClick={save}>

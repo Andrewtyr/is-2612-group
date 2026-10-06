@@ -17,6 +17,7 @@ import type { AuthRequest } from '../../common/auth.guard';
 import { z } from 'zod';
 import type { Lesson, Prisma } from '@prisma/client';
 import { AcademyService } from '../../integrations/academy/academy.service';
+import { notifyGroup } from '../../common/group-notifications';
 
 const lessonSchema = z.object({
   date: z.iso.date(),
@@ -182,6 +183,12 @@ export class ScheduleController {
           newData: input,
         },
       });
+      await notifyGroup(
+        tx,
+        group.id,
+        'Добавлена пара',
+        `${input.date}, ${input.lessonNumber} пара`,
+      );
       return created;
     });
     return lesson;
@@ -255,6 +262,12 @@ export class ScheduleController {
           newData: snapshot(updated),
         },
       });
+      await notifyGroup(
+        tx,
+        group.id,
+        input.status === 'CANCELLED' ? 'Пара отменена' : 'Расписание изменено',
+        `${input.date ?? old.date.toISOString().slice(0, 10)}, ${input.lessonNumber ?? old.lessonNumber} пара`,
+      );
       return updated;
     });
   }

@@ -63,9 +63,19 @@ export class AttendanceController {
     const attendance = await this.prisma.attendance.findMany({
       where: { lessonId: id },
     });
+    const notices = await this.prisma.absenceReason.findMany({
+      where: {
+        date: lesson.date,
+        studentId: { in: members.map(({ user }) => user.id) },
+        OR: [{ lessonId: null }, { lessonId: id }],
+      },
+      select: { studentId: true },
+    });
+    const noticeIds = new Set(notices.map((notice) => notice.studentId));
     return members.map(({ user }) => ({
       student: user,
       attendance: attendance.find((item) => item.studentId === user.id) ?? null,
+      preAbsent: noticeIds.has(user.id),
     }));
   }
 
@@ -85,7 +95,14 @@ export class AttendanceController {
     if (lesson.status === 'CANCELLED')
       throw new BadRequestException('Отменённую пару нельзя отметить');
     const date = lesson.date.toISOString().slice(0, 10);
-    if (!canEditAttendance(request.user.role, date, new Date())) {
+    if (
+      !canEditAttendance(
+        request.user.role,
+        date,
+        new Date(),
+        Number(process.env.ATTENDANCE_EDIT_WINDOW_DAYS ?? 0),
+      )
+    ) {
       throw new ForbiddenException('Время редактирования истекло');
     }
     if (request.user.role === 'HEAD' || request.user.role === 'DEPUTY') {
@@ -130,6 +147,7 @@ export class AttendanceController {
             status: entry.status,
             markedBy: request.user.id,
             markedAt: new Date(),
+            confirmedAt: null,
           },
         });
         await tx.attendanceHistory.create({
@@ -151,6 +169,14 @@ export class AttendanceController {
             newData: { status: entry.status },
           },
         });
+        await tx.notification.create({
+          data: {
+            userId: entry.studentId,
+            type: 'ATTENDANCE_CHANGED',
+            title: old ? 'Отметка изменена' : 'Появилась отметка',
+            body: `${date}, ${lesson.lessonNumber} пара: ${entry.status}`,
+          },
+        });
       }
     });
     return { ok: true };
@@ -163,10 +189,48 @@ export class AttendanceController {
       where: { studentId: request.user.id },
       include: {
         lesson: { include: { subject: true, teacher: true } },
-        history: true,
+        history: {
+          include: {
+            editor: { select: { firstName: true, lastName: true, role: true } },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+        disputes: { orderBy: { createdAt: 'desc' } },
       },
       orderBy: { lesson: { date: 'desc' } },
     });
+  }
+
+  @Post('attendance/:id/confirm')
+  async confirm(@Req() request: AuthRequest, @Param('id') id: string) {
+    const attendance = await this.prisma.attendance.findUnique({
+      where: { id },
+    });
+    if (
+      !attendance ||
+      attendance.studentId !== request.user.id ||
+      request.user.role === 'PARENT'
+    )
+      throw new ForbiddenException();
+    if (attendance.confirmedAt)
+      return { ok: true, confirmedAt: attendance.confirmedAt };
+    const confirmedAt = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      await tx.attendance.update({ where: { id }, data: { confirmedAt } });
+      await tx.auditLog.create({
+        data: {
+          userId: request.user.id,
+          action: 'ATTENDANCE_CONFIRM',
+          entityType: 'Attendance',
+          entityId: id,
+          newData: {
+            status: attendance.status,
+            confirmedAt: confirmedAt.toISOString(),
+          },
+        },
+      });
+    });
+    return { ok: true, confirmedAt };
   }
 
   @Post('attendance/:id/dispute')
@@ -184,6 +248,15 @@ export class AttendanceController {
     });
     if (!attendance || attendance.studentId !== request.user.id)
       throw new ForbiddenException();
+    const pending = await this.prisma.attendanceDispute.findFirst({
+      where: {
+        attendanceId: id,
+        studentId: request.user.id,
+        status: 'PENDING',
+      },
+    });
+    if (pending)
+      throw new BadRequestException('Спор по этой отметке уже рассматривается');
     return this.prisma.attendanceDispute.create({
       data: { attendanceId: id, studentId: request.user.id, comment },
     });
@@ -242,7 +315,11 @@ export class AttendanceController {
         });
         await tx.attendance.update({
           where: { id: dispute.attendanceId },
-          data: { status: input.attendanceStatus, markedBy: request.user.id },
+          data: {
+            status: input.attendanceStatus,
+            markedBy: request.user.id,
+            confirmedAt: null,
+          },
         });
         await tx.attendanceHistory.create({
           data: {
@@ -270,6 +347,14 @@ export class AttendanceController {
           entityType: 'AttendanceDispute',
           entityId: id,
           newData: { status: input.status, decision: input.decision },
+        },
+      });
+      await tx.notification.create({
+        data: {
+          userId: dispute.studentId,
+          type: 'DISPUTE_RESOLVED',
+          title: 'Спор рассмотрен',
+          body: input.decision,
         },
       });
       return result;

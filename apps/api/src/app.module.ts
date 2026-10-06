@@ -11,6 +11,8 @@ import { UsersController } from './modules/users/users.controller';
 import { StatisticsController } from './modules/statistics/statistics.controller';
 import { AbsenceController } from './modules/absence/absence.controller';
 import { AcademyService } from './integrations/academy/academy.service';
+import { AuditController } from './modules/audit/audit.controller';
+import { NotificationsController } from './modules/notifications/notifications.controller';
 
 @Module({
   controllers: [
@@ -21,6 +23,8 @@ import { AcademyService } from './integrations/academy/academy.service';
     UsersController,
     StatisticsController,
     AbsenceController,
+    AuditController,
+    NotificationsController,
   ],
   providers: [
     PrismaService,

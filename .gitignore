@@ -5,6 +5,7 @@ dist/
 coverage/
 tmp/
 backups/
+uploads/
 .env
 .env.*
 !.env.example

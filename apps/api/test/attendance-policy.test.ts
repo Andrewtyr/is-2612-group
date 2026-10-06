@@ -41,4 +41,11 @@ describe('canEditAttendance', () => {
       ),
     ).toBe(false);
   });
+
+  it('allows a configured extra day and rejects dates outside that window', () => {
+    const now = new Date('2026-10-03T09:00:00+07:00');
+    expect(canEditAttendance('HEAD', '2026-10-02', now, 1)).toBe(true);
+    expect(canEditAttendance('HEAD', '2026-10-01', now, 1)).toBe(false);
+    expect(canEditAttendance('HEAD', '2026-10-04', now, 1)).toBe(false);
+  });
 });

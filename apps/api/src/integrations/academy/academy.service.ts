@@ -21,6 +21,7 @@ import {
   type PdfChange,
 } from './academy-pdf';
 import type { Prisma } from '@prisma/client';
+import { notifyGroup } from '../../common/group-notifications';
 
 const scheduleOrigin = 'https://schedule.altag.ru';
 const bellsUrl = 'https://altag.ru/student/schedule/call_schedule';
@@ -288,6 +289,12 @@ export class AcademyService implements OnModuleInit, OnModuleDestroy {
           newData: after,
         },
       });
+      await notifyGroup(
+        tx,
+        groupId,
+        change.status === 'CANCELLED' ? 'Пара отменена' : 'Расписание изменено',
+        `${date.toISOString().slice(0, 10)}, ${change.lessonNumber} пара`,
+      );
     });
   }
 
@@ -404,6 +411,12 @@ export class AcademyService implements OnModuleInit, OnModuleDestroy {
             source: scheduleOrigin,
           },
         });
+        await notifyGroup(
+          tx,
+          groupId,
+          'Расписание изменено',
+          `${date.toISOString().slice(0, 10)}, ${lesson.lessonNumber} пара`,
+        );
       }
     });
   }

@@ -22,6 +22,8 @@ services:
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
     env_file: .env.production
+    volumes:
+      - ./uploads:/app/uploads
     environment:
       API_PORT: 4000
       NODE_ENV: production
@@ -37,6 +39,6 @@ services:
     depends_on:
       - api
     ports:
-      - '3000:3000'
+      - '127.0.0.1:3000:3000'
 volumes:
   postgres_data:

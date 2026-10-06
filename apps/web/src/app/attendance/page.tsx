@@ -7,11 +7,20 @@ import { api } from '@/lib/api';
 type RecordItem = {
   id: string;
   status: string;
+  confirmedAt: string | null;
   lesson: {
     date: string;
     lessonNumber: number;
     subject: { name: string } | null;
   };
+  history: {
+    id: string;
+    oldStatus: string | null;
+    newStatus: string;
+    createdAt: string;
+    editor: { firstName: string; lastName: string; role: string };
+  }[];
+  disputes: { id: string; status: string; decision: string | null }[];
 };
 type Summary = {
   total: number;
@@ -21,7 +30,18 @@ type Summary = {
   excused: number;
   percent: number;
 };
-type Reason = { id: string; date: string; category: string; status: string };
+type Reason = {
+  id: string;
+  date: string;
+  category: string;
+  status: string;
+  attachments: { id: string; fileName: string }[];
+};
+type AbsenceLesson = {
+  id: string;
+  lessonNumber: number;
+  subject: { name: string } | null;
+};
 
 const categories = [
   'болезнь',
@@ -49,6 +69,8 @@ export default function AttendancePage() {
   const [error, setError] = useState('');
   const [date, setDate] = useState('');
   const [category, setCategory] = useState(categories[0]);
+  const [absenceLessons, setAbsenceLessons] = useState<AbsenceLesson[]>([]);
+  const [lessonId, setLessonId] = useState('');
   const [comment, setComment] = useState('');
   const [disputeId, setDisputeId] = useState<string | null>(null);
   const [disputeComment, setDisputeComment] = useState('');
@@ -72,15 +94,28 @@ export default function AttendancePage() {
     void refresh();
   }, []);
 
+  useEffect(() => {
+    if (!date) return;
+    api<AbsenceLesson[]>(`/schedule/date/${date}`)
+      .then(setAbsenceLessons)
+      .catch((reason: Error) => setError(reason.message));
+  }, [date]);
+
   async function addReason(event: React.FormEvent) {
     event.preventDefault();
     setError('');
     try {
       await api('/absence-reasons', {
         method: 'POST',
-        body: JSON.stringify({ date, category, comment }),
+        body: JSON.stringify({
+          date,
+          category,
+          comment,
+          lessonId: lessonId || undefined,
+        }),
       });
       setComment('');
+      setLessonId('');
       await refresh();
     } catch (reason) {
       setError((reason as Error).message);
@@ -98,6 +133,40 @@ export default function AttendancePage() {
       setDisputeId(null);
       setDisputeComment('');
       setError('Спор отправлен куратору');
+    } catch (reason) {
+      setError((reason as Error).message);
+    }
+  }
+
+  async function confirmMark(id: string) {
+    try {
+      await api(`/attendance/${id}/confirm`, { method: 'POST' });
+      await refresh();
+    } catch (reason) {
+      setError((reason as Error).message);
+    }
+  }
+
+  async function uploadDocument(reasonId: string, file: File) {
+    try {
+      const response = await fetch(
+        `/api/absence-reasons/${reasonId}/attachments`,
+        {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': file.type,
+            'X-File-Name': encodeURIComponent(file.name),
+          },
+          body: file,
+        },
+      );
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message ?? 'Не удалось загрузить документ');
+      }
+      setError('Документ добавлен');
+      await refresh();
     } catch (reason) {
       setError((reason as Error).message);
     }
@@ -141,7 +210,7 @@ export default function AttendancePage() {
       <div className="lessons">
         {records.length === 0 && <div className="empty">Отметок пока нет.</div>}
         {records.map((item) => (
-          <article key={item.id} className="lesson">
+          <article key={item.id} className="panel attendance-record">
             <div className="lesson-content wide">
               <div className="lesson-top">
                 {item.lesson.date.slice(0, 10)} · {item.lesson.lessonNumber}{' '}
@@ -149,13 +218,58 @@ export default function AttendancePage() {
               </div>
               <h3>{item.lesson.subject?.name ?? 'Занятие'}</h3>
               <p>{statusLabels[item.status] ?? item.status}</p>
+              {item.confirmedAt && (
+                <p className="muted">Вы подтвердили отметку</p>
+              )}
+              {item.disputes[0] && (
+                <p className="muted">
+                  Спор:{' '}
+                  {item.disputes[0].status === 'PENDING'
+                    ? 'на рассмотрении'
+                    : item.disputes[0].status === 'APPROVED'
+                      ? 'принят'
+                      : item.disputes[0].status === 'REJECTED'
+                        ? 'отклонён'
+                        : 'нужны сведения'}
+                  {item.disputes[0].decision
+                    ? ` · ${item.disputes[0].decision}`
+                    : ''}
+                </p>
+              )}
+              {item.history.length > 0 && (
+                <details className="mark-history">
+                  <summary>История отметки</summary>
+                  {item.history.map((change) => (
+                    <p key={change.id} className="muted">
+                      {new Date(change.createdAt).toLocaleString('ru-RU')} ·{' '}
+                      {change.editor.lastName} {change.editor.firstName}:{' '}
+                      {change.oldStatus
+                        ? `${statusLabels[change.oldStatus] ?? change.oldStatus} → `
+                        : ''}
+                      {statusLabels[change.newStatus] ?? change.newStatus}
+                    </p>
+                  ))}
+                </details>
+              )}
             </div>
-            <button
-              className="small-button"
-              onClick={() => setDisputeId(item.id)}
-            >
-              Оспорить
-            </button>
+            <div className="row">
+              {!item.confirmedAt && (
+                <button
+                  className="secondary"
+                  onClick={() => void confirmMark(item.id)}
+                >
+                  Подтвердить
+                </button>
+              )}
+              {item.disputes[0]?.status !== 'PENDING' && (
+                <button
+                  className="small-button"
+                  onClick={() => setDisputeId(item.id)}
+                >
+                  Оспорить
+                </button>
+              )}
+            </div>
           </article>
         ))}
       </div>
@@ -192,9 +306,26 @@ export default function AttendancePage() {
           <input
             type="date"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onChange={(e) => {
+              setDate(e.target.value);
+              setLessonId('');
+            }}
             required
           />
+        </label>
+        <label>
+          Период
+          <select
+            value={lessonId}
+            onChange={(e) => setLessonId(e.target.value)}
+          >
+            <option value="">Весь день</option>
+            {absenceLessons.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.lessonNumber} пара · {item.subject?.name ?? 'Занятие'}
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           Причина
@@ -221,14 +352,35 @@ export default function AttendancePage() {
         <div className="panel">
           <h3>Мои причины</h3>
           {reasons.map((item) => (
-            <p key={item.id}>
-              {item.date.slice(0, 10)} · {item.category} ·{' '}
-              {item.status === 'PENDING'
-                ? 'на проверке'
-                : item.status === 'APPROVED'
-                  ? 'подтверждено'
-                  : 'отклонено'}
-            </p>
+            <div key={item.id} className="reason-row">
+              <p>
+                {item.date.slice(0, 10)} · {item.category} ·{' '}
+                {item.status === 'PENDING'
+                  ? 'на проверке'
+                  : item.status === 'APPROVED'
+                    ? 'подтверждено'
+                    : 'отклонено'}
+              </p>
+              {item.attachments.map((attachment) => (
+                <a
+                  key={attachment.id}
+                  href={`/api/attachments/${attachment.id}`}
+                >
+                  {attachment.fileName}
+                </a>
+              ))}
+              <label>
+                Прикрепить справку (PDF, JPG, PNG до 5 МБ)
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void uploadDocument(item.id, file);
+                  }}
+                />
+              </label>
+            </div>
           ))}
         </div>
       )}
