@@ -1,0 +1,22 @@
+{
+  "name": "student-group-system",
+  "private": true,
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @group/web --filter @group/api dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "format:check": "prettier --check .",
+    "format": "prettier --write .",
+    "ci:local": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "db:generate": "pnpm --filter @group/api db:generate",
+    "db:migrate": "pnpm --filter @group/api db:migrate",
+    "db:seed": "pnpm --filter @group/api db:seed"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3"
+  }
+}

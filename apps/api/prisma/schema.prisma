@@ -1,0 +1,262 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  HEAD
+  DEPUTY
+  CURATOR
+  PARENT
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+}
+
+enum LessonStatus {
+  PLANNED
+  CHANGED
+  CANCELLED
+  ADDED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  LEFT_EARLY
+  EXCUSED
+  EXEMPT
+  NEEDS_REVIEW
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  MORE_INFO
+}
+
+model User {
+  id              String              @id @default(cuid())
+  firstName       String
+  lastName        String
+  middleName      String?
+  login           String              @unique
+  passwordHash    String
+  role            Role                @default(STUDENT)
+  status          UserStatus          @default(ACTIVE)
+  mustChangePass  Boolean             @default(true)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  memberships     GroupMember[]
+  attendances     Attendance[]        @relation("StudentAttendance")
+  attendanceEdits AttendanceHistory[] @relation("AttendanceEditor")
+  absenceReasons  AbsenceReason[]
+  disputes        AttendanceDispute[] @relation("DisputeStudent")
+  auditEntries    AuditLog[]
+  parentLinks     ParentStudent[]     @relation("Parent")
+  childLinks      ParentStudent[]     @relation("Child")
+}
+
+model Group {
+  id            String        @id @default(cuid())
+  name          String        @unique
+  building      String?
+  course        Int?
+  academicYear  String?
+  active        Boolean       @default(true)
+  scheduleSource String?
+  members       GroupMember[]
+  lessons       Lesson[]
+  bellSchedules BellSchedule[]
+}
+
+model GroupMember {
+  id      String @id @default(cuid())
+  groupId String
+  userId  String
+  group   Group  @relation(fields: [groupId], references: [id])
+  user    User   @relation(fields: [userId], references: [id])
+
+  @@unique([groupId, userId])
+}
+
+model ParentStudent {
+  id              String  @id @default(cuid())
+  parentId        String
+  studentId       String
+  canViewReasons  Boolean @default(false)
+  canViewDocuments Boolean @default(false)
+  parent          User    @relation("Parent", fields: [parentId], references: [id])
+  student         User    @relation("Child", fields: [studentId], references: [id])
+
+  @@unique([parentId, studentId])
+}
+
+model Subject {
+  id      String   @id @default(cuid())
+  name    String   @unique
+  lessons Lesson[]
+}
+
+model Teacher {
+  id      String   @id @default(cuid())
+  name    String   @unique
+  lessons Lesson[]
+}
+
+model BellSchedule {
+  id           String @id @default(cuid())
+  groupId      String
+  dayScheme    String
+  lessonNumber Int
+  startTime    String
+  endTime      String
+  group        Group  @relation(fields: [groupId], references: [id])
+
+  @@unique([groupId, dayScheme, lessonNumber])
+}
+
+model Lesson {
+  id            String          @id @default(cuid())
+  groupId       String
+  date          DateTime        @db.Date
+  lessonNumber  Int
+  subjectId     String?
+  teacherId     String?
+  room          String?
+  building      String?
+  startTime     String
+  endTime       String
+  subgroup      String          @default("")
+  status        LessonStatus    @default(PLANNED)
+  source        String          @default("manual")
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  group         Group           @relation(fields: [groupId], references: [id])
+  subject       Subject?        @relation(fields: [subjectId], references: [id])
+  teacher       Teacher?        @relation(fields: [teacherId], references: [id])
+  attendances   Attendance[]
+  changes       ScheduleChange[]
+
+  @@unique([groupId, date, lessonNumber, subgroup])
+  @@index([groupId, date])
+}
+
+model ScheduleChange {
+  id         String   @id @default(cuid())
+  lessonId   String
+  type       String
+  oldValue   Json?
+  newValue   Json?
+  source     String
+  reason     String?
+  changedBy  String?
+  detectedAt DateTime @default(now())
+  lesson     Lesson   @relation(fields: [lessonId], references: [id])
+}
+
+model Attendance {
+  id        String              @id @default(cuid())
+  lessonId  String
+  studentId String
+  status    AttendanceStatus
+  markedBy  String
+  markedAt  DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+  lesson    Lesson              @relation(fields: [lessonId], references: [id])
+  student   User                @relation("StudentAttendance", fields: [studentId], references: [id])
+  history   AttendanceHistory[]
+  disputes  AttendanceDispute[]
+
+  @@unique([lessonId, studentId])
+}
+
+model AttendanceHistory {
+  id           String            @id @default(cuid())
+  attendanceId String
+  oldStatus    AttendanceStatus?
+  newStatus    AttendanceStatus
+  changedBy    String
+  reason       String?
+  createdAt    DateTime          @default(now())
+  attendance   Attendance        @relation(fields: [attendanceId], references: [id])
+  editor       User              @relation("AttendanceEditor", fields: [changedBy], references: [id])
+}
+
+model AbsenceReason {
+  id        String       @id @default(cuid())
+  studentId String
+  lessonId  String?
+  date      DateTime     @db.Date
+  category  String
+  comment   String?
+  status    ReviewStatus @default(PENDING)
+  reviewedBy String?
+  createdAt DateTime     @default(now())
+  student   User         @relation(fields: [studentId], references: [id])
+  attachments Attachment[]
+}
+
+model Attachment {
+  id              String        @id @default(cuid())
+  absenceReasonId String
+  fileName        String
+  storageKey      String
+  mimeType        String
+  size            Int
+  createdAt       DateTime      @default(now())
+  absenceReason   AbsenceReason @relation(fields: [absenceReasonId], references: [id])
+}
+
+model AttendanceDispute {
+  id           String       @id @default(cuid())
+  attendanceId String
+  studentId    String
+  comment      String
+  status       ReviewStatus @default(PENDING)
+  decision     String?
+  reviewedBy   String?
+  createdAt    DateTime     @default(now())
+  reviewedAt   DateTime?
+  attendance   Attendance   @relation(fields: [attendanceId], references: [id])
+  student      User         @relation("DisputeStudent", fields: [studentId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String
+  oldData    Json?
+  newData    Json?
+  createdAt  DateTime @default(now())
+  user       User?    @relation(fields: [userId], references: [id])
+}
+
+model SyncState {
+  id          String    @id
+  lastAttempt DateTime?
+  lastSuccess DateTime?
+  lastError   String?
+}
