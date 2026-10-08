@@ -180,18 +180,34 @@ export default function MarkPage() {
           <div className="section-title">
             <h2>{selected.lessonNumber} пара · список группы</h2>
           </div>
-          <button
-            className="secondary"
-            onClick={() =>
-              setMarks(
-                Object.fromEntries(
-                  members.map((member) => [member.student.id, 'PRESENT']),
-                ),
-              )
-            }
-          >
-            Все присутствуют
-          </button>
+          <div className="row">
+            <button
+              type="button"
+              className="secondary"
+              onClick={() =>
+                setMarks(
+                  Object.fromEntries(
+                    members.map((member) => [member.student.id, 'PRESENT']),
+                  ),
+                )
+              }
+            >
+              ✓ Все были
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() =>
+                setMarks(
+                  Object.fromEntries(
+                    members.map((member) => [member.student.id, 'ABSENT']),
+                  ),
+                )
+              }
+            >
+              × Все отсутствовали
+            </button>
+          </div>
           {lessons.some(
             (lesson) =>
               lesson.id !== selected.id &&

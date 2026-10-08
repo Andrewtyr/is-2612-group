@@ -47,6 +47,158 @@ describe('MAX bot webhook', () => {
 });
 
 describe('MAX bot messages', () => {
+  it('shows the group roster and bulk actions in the lesson menu', async () => {
+    vi.stubEnv('MAX_BOT_TOKEN', 'test-token');
+    vi.stubEnv('MAX_ADMIN_USER_IDS', '42');
+    const date = isoDate(todayInNovosibirsk());
+    const students = Array.from({ length: 26 }, (_, index) => ({
+      user: {
+        id: `student-${index + 1}`,
+        lastName: `Студент${index + 1}`,
+        firstName: 'Иван',
+      },
+    }));
+    const prisma = {
+      group: { findUnique: vi.fn().mockResolvedValue({ id: 'group-1' }) },
+      lesson: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'lesson-1',
+          groupId: 'group-1',
+          lessonNumber: 3,
+          date,
+          status: 'PLANNED',
+          subject: { name: 'Литература' },
+        }),
+      },
+      groupMember: { findMany: vi.fn().mockResolvedValue(students) },
+      attendance: {
+        findMany: vi
+          .fn()
+          .mockResolvedValue([{ studentId: 'student-1', status: 'PRESENT' }]),
+      },
+    };
+    const request = vi.fn(async (...args: [string, RequestInit]) => {
+      expect(args).toHaveLength(2);
+      return { ok: true, text: async () => '{}' };
+    });
+    vi.stubGlobal('fetch', request);
+    const service = new MaxBotService(
+      prisma as unknown as PrismaService,
+      {} as AcademyService,
+    );
+
+    await service.handleWebhook({
+      update_type: 'message_callback',
+      timestamp: 1,
+      callback: {
+        callback_id: 'roster-1',
+        payload: 'mark:lesson:lesson-1',
+        user: { user_id: 42 },
+      },
+    });
+
+    const sent = JSON.parse(String(request.mock.calls[1][1]?.body));
+    const buttons = sent.attachments[0].payload.buttons.flat();
+    expect(buttons).toHaveLength(29);
+    expect(buttons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ payload: 'mark:student:lesson-1:student-1' }),
+        expect.objectContaining({
+          payload: 'mark:student:lesson-1:student-26',
+        }),
+        expect.objectContaining({ payload: 'mark:bulk:lesson-1:PRESENT' }),
+        expect.objectContaining({ payload: 'mark:bulk:lesson-1:ABSENT' }),
+      ]),
+    );
+    expect(sent.text).toContain('Отмечено: 1/26');
+  });
+
+  it('marks every unmarked student absent with the selected reason', async () => {
+    vi.stubEnv('MAX_BOT_TOKEN', 'test-token');
+    vi.stubEnv('MAX_ADMIN_USER_IDS', '42');
+    const date = isoDate(todayInNovosibirsk());
+    const students = ['one', 'two'].map((id) => ({
+      user: { id, lastName: id, firstName: 'Иван' },
+    }));
+    const editor = {
+      id: 'admin-1',
+      login: 'admin',
+      role: 'ADMIN',
+      status: 'ACTIVE',
+    };
+    const tx = {
+      attendance: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        upsert: vi.fn().mockResolvedValue({ id: 'record-1' }),
+      },
+      attendanceHistory: { create: vi.fn().mockResolvedValue({}) },
+      auditLog: { create: vi.fn().mockResolvedValue({}) },
+      notification: { create: vi.fn().mockResolvedValue({}) },
+    };
+    const prisma = {
+      group: { findUnique: vi.fn().mockResolvedValue({ id: 'group-1' }) },
+      lesson: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'lesson-1',
+          groupId: 'group-1',
+          lessonNumber: 3,
+          date,
+          status: 'PLANNED',
+          subject: { name: 'Литература' },
+        }),
+      },
+      groupMember: {
+        findMany: vi
+          .fn()
+          .mockImplementation(
+            ({ where }: { where: { user: { role: { in: string[] } } } }) =>
+              Promise.resolve(
+                where.user.role.in.includes('STUDENT')
+                  ? students
+                  : [{ user: editor }],
+              ),
+          ),
+        findFirst: vi.fn().mockResolvedValue({ id: 'membership-1' }),
+      },
+      attendance: { findMany: vi.fn().mockResolvedValue([]) },
+      $transaction: vi.fn(
+        async (callback: (client: typeof tx) => Promise<void>) => callback(tx),
+      ),
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, text: async () => '{}' })),
+    );
+    const service = new MaxBotService(
+      prisma as unknown as PrismaService,
+      {} as AcademyService,
+    );
+
+    await service.handleWebhook({
+      update_type: 'message_callback',
+      timestamp: 1,
+      callback: {
+        callback_id: 'bulk-1',
+        payload: 'mark:bulk-run:lesson-1:ABSENT:empty:illness',
+        user: { user_id: 42 },
+      },
+    });
+
+    expect(tx.attendance.upsert).toHaveBeenCalledTimes(2);
+    expect(tx.attendance.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ status: 'ABSENT' }),
+      }),
+    );
+    expect(tx.attendanceHistory.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          reason: expect.stringContaining('Болезнь'),
+        }),
+      }),
+    );
+  });
+
   it('shows the admin menu only to the configured MAX ID', async () => {
     vi.stubEnv('MAX_BOT_TOKEN', 'test-token');
     vi.stubEnv('MAX_ADMIN_USER_IDS', '42');

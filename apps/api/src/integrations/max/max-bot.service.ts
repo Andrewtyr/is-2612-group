@@ -792,7 +792,23 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
     if (prefix !== 'mark') return this.sendHeadMenu(userId);
     if (action === 'lessons') return this.sendMarkLessons(userId);
     if (!lessonId) return this.sendMarkLessons(userId);
-    if (action === 'lesson') return this.sendMarkStudent(userId, lessonId);
+    if (action === 'lesson') return this.sendMarkRoster(userId, lessonId);
+    if (action === 'roster')
+      return this.sendMarkRoster(userId, lessonId, '', Number(studentId) || 0);
+    if (action === 'bulk' && studentId)
+      return this.sendBulkScope(userId, lessonId, studentId);
+    if (action === 'bulk-scope' && studentId && statusText)
+      return studentId === 'ABSENT'
+        ? this.sendBulkReasons(userId, lessonId, statusText)
+        : this.runBulkMark(userId, lessonId, studentId, statusText, 'none');
+    if (action === 'bulk-run' && studentId && statusText && reasonCode)
+      return this.runBulkMark(
+        userId,
+        lessonId,
+        studentId,
+        statusText,
+        reasonCode,
+      );
     if (action === 'all') return this.confirmAllPresent(userId, lessonId);
     if (action === 'all-confirm') return this.markAllPresent(userId, lessonId);
     if (action === 'student' && studentId)
@@ -910,6 +926,77 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
+  private async sendMarkRoster(
+    userId: number,
+    lessonId: string,
+    prefix = '',
+    requestedPage = 0,
+  ) {
+    const context = await this.markLesson(lessonId);
+    if (!context)
+      return this.sendToUser(userId, 'Эта пара уже недоступна для отметки.');
+    const members = await this.markMembers(context.group.id);
+    const attendance = await this.prisma.attendance.findMany({
+      where: { lessonId },
+    });
+    const marks = new Map(
+      attendance.map((item) => [item.studentId, item.status]),
+    );
+    const pageSize = 26;
+    const pages = Math.max(1, Math.ceil(members.length / pageSize));
+    const page = Math.max(0, Math.min(requestedPage, pages - 1));
+    const buttons: KeyboardButton[][] = members
+      .slice(page * pageSize, (page + 1) * pageSize)
+      .map(({ user }, index) => [
+        {
+          type: 'callback',
+          text: `${page * pageSize + index + 1}. ${marks.has(user.id) ? '✅' : '▫️'} ${user.lastName} ${user.firstName}`.slice(
+            0,
+            60,
+          ),
+          payload: `mark:student:${lessonId}:${user.id}`,
+        },
+      ]);
+    buttons.push([
+      {
+        type: 'callback',
+        text: '✅ Все были',
+        payload: `mark:bulk:${lessonId}:PRESENT`,
+      },
+    ]);
+    buttons.push([
+      {
+        type: 'callback',
+        text: '❌ Все отсутствовали',
+        payload: `mark:bulk:${lessonId}:ABSENT`,
+      },
+    ]);
+    if (pages > 1) {
+      const navigation: KeyboardButton[] = [];
+      if (page > 0)
+        navigation.push({
+          type: 'callback',
+          text: '⬅️ Назад',
+          payload: `mark:roster:${lessonId}:${page - 1}`,
+        });
+      if (page < pages - 1)
+        navigation.push({
+          type: 'callback',
+          text: 'Далее ➡️',
+          payload: `mark:roster:${lessonId}:${page + 1}`,
+        });
+      buttons.push(navigation);
+    }
+    buttons.push([
+      { type: 'callback', text: '📚 К списку пар', payload: 'mark:lessons' },
+    ]);
+    return this.sendToUser(
+      userId,
+      `${prefix ? `${prefix}\n\n` : ''}${context.lesson.lessonNumber} пара · ${context.lesson.subject?.name ?? 'Занятие'}\nОтмечено: ${marks.size}/${members.length}${pages > 1 ? ` · страница ${page + 1}/${pages}` : ''}\nНажмите на студента, чтобы поставить или изменить отметку.`,
+      [{ type: 'inline_keyboard', payload: { buttons } }],
+    );
+  }
+
   private async sendMarkStudent(
     userId: number,
     lessonId: string,
@@ -972,8 +1059,8 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
       [
         {
           type: 'callback',
-          text: '✅ Все неотмеченные были',
-          payload: `mark:all:${lessonId}`,
+          text: '📋 Весь список',
+          payload: `mark:roster:${lessonId}`,
         },
       ],
       [{ type: 'callback', text: '📚 К списку пар', payload: 'mark:lessons' }],
@@ -1119,15 +1206,9 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
     const status = statusText as MaxMarkStatus;
     try {
       await this.writeMaxMark(userId, lessonId, studentId, status, reasonCode);
-      const context = await this.markLesson(lessonId);
-      if (!context) return this.sendMarkLessons(userId);
-      const members = await this.markMembers(context.group.id);
-      const index = members.findIndex(({ user }) => user.id === studentId);
-      const next = members[(index + 1) % members.length]?.user.id;
-      return this.sendMarkStudent(
+      return this.sendMarkRoster(
         userId,
         lessonId,
-        next,
         `✅ Сохранено: ${maxStatusLabels[status]}`,
       );
     } catch (error) {
@@ -1136,6 +1217,126 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
         error instanceof Error
           ? error.message
           : 'Не удалось сохранить отметку.',
+      );
+    }
+  }
+
+  private async sendBulkScope(
+    userId: number,
+    lessonId: string,
+    status: string,
+  ) {
+    if (status !== 'PRESENT' && status !== 'ABSENT')
+      return this.sendMarkRoster(userId, lessonId);
+    const context = await this.markLesson(lessonId);
+    if (!context) return this.sendMarkLessons(userId);
+    const label = status === 'PRESENT' ? 'присутствующими' : 'отсутствующими';
+    return this.sendToUser(
+      userId,
+      `Отметить студентов ${label} на ${context.lesson.lessonNumber} паре? Выберите, какие отметки изменить.`,
+      [
+        {
+          type: 'inline_keyboard',
+          payload: {
+            buttons: [
+              [
+                {
+                  type: 'callback',
+                  text: 'Только без отметки',
+                  payload: `mark:bulk-scope:${lessonId}:${status}:empty`,
+                },
+              ],
+              [
+                {
+                  type: 'callback',
+                  text: 'Заменить отметки всем',
+                  payload: `mark:bulk-scope:${lessonId}:${status}:all`,
+                },
+              ],
+              [
+                {
+                  type: 'callback',
+                  text: 'Отмена',
+                  payload: `mark:roster:${lessonId}`,
+                },
+              ],
+            ],
+          },
+        },
+      ],
+    );
+  }
+
+  private async sendBulkReasons(
+    userId: number,
+    lessonId: string,
+    scope: string,
+  ) {
+    if (scope !== 'empty' && scope !== 'all')
+      return this.sendMarkRoster(userId, lessonId);
+    const choices: KeyboardButton[][] = Object.entries(maxReasonLabels).map(
+      ([code, label]) => [
+        {
+          type: 'callback',
+          text: label,
+          payload: `mark:bulk-run:${lessonId}:ABSENT:${scope}:${code}`,
+        },
+      ],
+    );
+    choices.push([
+      { type: 'callback', text: 'Отмена', payload: `mark:roster:${lessonId}` },
+    ]);
+    return this.sendToUser(
+      userId,
+      'Выберите причину для массовой отметки «Отсутствовал». После выбора отметки сохранятся.',
+      [{ type: 'inline_keyboard', payload: { buttons: choices } }],
+    );
+  }
+
+  private async runBulkMark(
+    userId: number,
+    lessonId: string,
+    status: string,
+    scope: string,
+    reasonCode: string,
+  ) {
+    if (
+      (status !== 'PRESENT' && status !== 'ABSENT') ||
+      (scope !== 'empty' && scope !== 'all') ||
+      (status === 'ABSENT' && !maxReasonLabels[reasonCode])
+    )
+      return this.sendMarkRoster(userId, lessonId);
+    const context = await this.markLesson(lessonId);
+    if (!context) return this.sendMarkLessons(userId);
+    const members = await this.markMembers(context.group.id);
+    const existing = await this.prisma.attendance.findMany({
+      where: { lessonId },
+      select: { studentId: true },
+    });
+    const marked = new Set(existing.map((item) => item.studentId));
+    let count = 0;
+    try {
+      for (const { user } of members) {
+        if (scope === 'empty' && marked.has(user.id)) continue;
+        await this.writeMaxMark(
+          userId,
+          lessonId,
+          user.id,
+          status,
+          reasonCode,
+          scope === 'empty',
+        );
+        count += 1;
+      }
+      return this.sendMarkRoster(
+        userId,
+        lessonId,
+        `✅ Обработано: ${count}. ${scope === 'empty' ? 'Прежние отметки сохранены.' : 'Отметки группы обновлены.'}`,
+      );
+    } catch (error) {
+      return this.sendToUser(
+        userId,
+        `Обработано: ${count}. ${error instanceof Error ? error.message : 'Не удалось завершить отметку.'}`,
       );
     }
   }
