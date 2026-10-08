@@ -154,6 +154,23 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
     return this.headIds().has(userId);
   }
 
+  private adminIds() {
+    return new Set(
+      (process.env.MAX_ADMIN_USER_IDS ?? '')
+        .split(',')
+        .map((value) => Number(value.trim()))
+        .filter((value) => Number.isSafeInteger(value) && value > 0),
+    );
+  }
+
+  private isAdmin(userId: number) {
+    return this.adminIds().has(userId);
+  }
+
+  private isManager(userId: number) {
+    return this.isHead(userId) || this.isAdmin(userId);
+  }
+
   private groupChatId() {
     const value = Number(process.env.MAX_GROUP_CHAT_ID ?? '');
     return Number.isSafeInteger(value) && value !== 0 ? value : null;
@@ -376,6 +393,10 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
         await this.sendHeadMenu(userId);
         return;
       }
+      if (normalized.includes('админ')) {
+        await this.sendAdminMenu(userId);
+        return;
+      }
 
       await this.sendToUser(
         userId,
@@ -399,6 +420,8 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
         return this.sendBells(userId);
       case 'head:menu':
         return this.sendHeadMenu(userId);
+      case 'admin:menu':
+        return this.sendAdminMenu(userId);
       case 'head:group':
         return this.sendGroupList(userId);
       case 'head:attendance':
@@ -435,6 +458,11 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
     if (this.isHead(userId)) {
       buttons.push([
         { type: 'callback', text: '⚙️ Староста', payload: 'head:menu' },
+      ]);
+    }
+    if (this.isAdmin(userId)) {
+      buttons.push([
+        { type: 'callback', text: '🛠 Админ', payload: 'admin:menu' },
       ]);
     }
     return [{ type: 'inline_keyboard', payload: { buttons } }];
@@ -482,10 +510,65 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
     ];
   }
 
+  private adminKeyboard(): Attachment[] {
+    return [
+      {
+        type: 'inline_keyboard',
+        payload: {
+          buttons: [
+            [
+              {
+                type: 'callback',
+                text: '✅ Отметить группу',
+                payload: 'mark:lessons',
+              },
+            ],
+            [
+              { type: 'callback', text: '👥 Группа', payload: 'head:group' },
+              {
+                type: 'callback',
+                text: '📊 Посещаемость',
+                payload: 'head:attendance',
+              },
+            ],
+            [
+              {
+                type: 'callback',
+                text: '🔄 Обновить расписание',
+                payload: 'head:sync',
+              },
+            ],
+            [
+              {
+                type: 'callback',
+                text: '📣 Объявление',
+                payload: 'head:announce',
+              },
+            ],
+            [
+              {
+                type: 'link',
+                text: '🌐 Управление на сайте',
+                url: `${this.siteUrl}/manage`,
+              },
+            ],
+            [{ type: 'callback', text: '⬅️ Главное меню', payload: 'menu' }],
+          ],
+        },
+      },
+    ];
+  }
+
+  private managerKeyboard(userId: number): Attachment[] {
+    return this.isAdmin(userId) ? this.adminKeyboard() : this.headKeyboard();
+  }
+
   private async sendMenu(userId: number) {
-    const extra = this.isHead(userId)
-      ? '\n\nДля вас доступен раздел «Староста».'
-      : '';
+    const extra = this.isAdmin(userId)
+      ? '\n\nДля вас доступен раздел «Админ».'
+      : this.isHead(userId)
+        ? '\n\nДля вас доступен раздел «Староста».'
+        : '';
     return this.sendToUser(
       userId,
       `ИС-2612 — помощник группы.\nРасписание, замены, звонки и важная информация.${extra}`,
@@ -504,6 +587,15 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
       userId,
       '⚙️ Меню старосты\n\nМожно отметить группу, посмотреть посещаемость, обновить расписание или отправить объявление в групповой чат.',
       this.headKeyboard(),
+    );
+  }
+
+  private async sendAdminMenu(userId: number) {
+    if (!this.isAdmin(userId)) return this.denied(userId);
+    return this.sendToUser(
+      userId,
+      '🛠 Меню администратора\n\nОтмечайте группу, проверяйте посещаемость, обновляйте расписание и отправляйте объявления. Управление пользователями доступно на сайте.',
+      this.adminKeyboard(),
     );
   }
 
@@ -609,7 +701,7 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async sendGroupList(userId: number) {
-    if (!this.isHead(userId)) return this.denied(userId);
+    if (!this.isManager(userId)) return this.denied(userId);
     const group = await primaryGroup(this.prisma);
     const members = await this.prisma.groupMember.findMany({
       where: {
@@ -633,12 +725,12 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
     return this.sendToUser(
       userId,
       `👥 ${group.name}\n\n${lines.join('\n') || 'Список пуст.'}`,
-      this.headKeyboard(),
+      this.managerKeyboard(userId),
     );
   }
 
   private async sendAttendanceSummary(userId: number) {
-    if (!this.isHead(userId)) return this.denied(userId);
+    if (!this.isManager(userId)) return this.denied(userId);
     const group = await primaryGroup(this.prisma);
     const dateText = todayInNovosibirsk();
     const from = isoDate(dateText);
@@ -672,7 +764,7 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
       return this.sendToUser(
         userId,
         '📊 Сегодня занятий нет.',
-        this.headKeyboard(),
+        this.managerKeyboard(userId),
       );
     }
     const lines = lessons.map((lesson) => {
@@ -689,12 +781,12 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
     return this.sendToUser(
       userId,
       `📊 Посещаемость на ${dateText}\n\n${lines.join('\n')}`,
-      this.headKeyboard(),
+      this.managerKeyboard(userId),
     );
   }
 
   private async handleMarkAction(userId: number, payload: string) {
-    if (!this.isHead(userId)) return this.denied(userId);
+    if (!this.isManager(userId)) return this.denied(userId);
     const [prefix, action, lessonId, studentId, statusText, reasonCode] =
       payload.split(':');
     if (prefix !== 'mark') return this.sendHeadMenu(userId);
@@ -754,7 +846,10 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
     const editors = await this.prisma.groupMember.findMany({
       where: {
         groupId,
-        user: { role: { in: ['HEAD', 'DEPUTY'] }, status: 'ACTIVE' },
+        user: {
+          role: { in: this.isAdmin(userId) ? ['ADMIN'] : ['HEAD', 'DEPUTY'] },
+          status: 'ACTIVE',
+        },
       },
       include: { user: true },
     });
@@ -781,7 +876,7 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
       return this.sendToUser(
         userId,
         'Сегодня занятий для отметки нет.',
-        this.headKeyboard(),
+        this.managerKeyboard(userId),
       );
     return this.sendToUser(
       userId,
@@ -940,7 +1035,7 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
     const date = context.lesson.date.toISOString().slice(0, 10);
     if (
       !canEditAttendance(
-        'HEAD',
+        this.isAdmin(userId) ? 'ADMIN' : 'HEAD',
         date,
         new Date(),
         Number(process.env.ATTENDANCE_EDIT_WINDOW_DAYS ?? 0),
@@ -950,7 +1045,7 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
     const editor = await this.markEditor(userId, context.group.id);
     if (!editor)
       throw new Error(
-        'Свяжите MAX ID с аккаунтом старосты через MAX_MARKER_BINDINGS',
+        'Свяжите MAX ID с аккаунтом администратора или старосты через MAX_MARKER_BINDINGS',
       );
     const member = await this.prisma.groupMember.findFirst({
       where: {
@@ -1078,7 +1173,7 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async markAllPresent(userId: number, lessonId: string) {
-    if (!this.isHead(userId)) return this.denied(userId);
+    if (!this.isManager(userId)) return this.denied(userId);
     const context = await this.markLesson(lessonId);
     if (!context) return this.sendMarkLessons(userId);
     const members = await this.markMembers(context.group.id);
@@ -1116,7 +1211,7 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async syncSchedule(userId: number) {
-    if (!this.isHead(userId)) return this.denied(userId);
+    if (!this.isManager(userId)) return this.denied(userId);
     await this.sendToUser(userId, '🔄 Запускаю синхронизацию расписания…');
     void this.academy
       .sync()
@@ -1124,7 +1219,7 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
         this.sendToUser(
           userId,
           `✅ Синхронизация завершена: ${JSON.stringify(result)}`,
-          this.headKeyboard(),
+          this.managerKeyboard(userId),
         ),
       )
       .catch(async (error) => {
@@ -1138,12 +1233,12 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async beginAnnouncement(userId: number) {
-    if (!this.isHead(userId)) return this.denied(userId);
+    if (!this.isManager(userId)) return this.denied(userId);
     if (!this.groupChatId()) {
       return this.sendToUser(
         userId,
         'Сначала задайте MAX_GROUP_CHAT_ID в .env.production. Добавьте бота в групповой чат, напишите там /chatid и сохраните полученный ID.',
-        this.headKeyboard(),
+        this.managerKeyboard(userId),
       );
     }
     this.pendingAnnouncement.add(userId);
@@ -1154,15 +1249,15 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async publishAnnouncement(userId: number, text: string) {
-    if (!this.isHead(userId)) return this.denied(userId);
+    if (!this.isManager(userId)) return this.denied(userId);
     const chatId = this.groupChatId();
     if (!chatId) return this.beginAnnouncement(userId);
-    await this.sendToChat(chatId, `📣 Объявление старосты\n\n${text}`);
+    await this.sendToChat(chatId, `📣 Объявление группы\n\n${text}`);
     this.pendingAnnouncement.delete(userId);
     return this.sendToUser(
       userId,
       '✅ Объявление отправлено в групповой чат.',
-      this.headKeyboard(),
+      this.managerKeyboard(userId),
     );
   }
 
@@ -1176,7 +1271,7 @@ export class MaxBotService implements OnModuleInit, OnModuleDestroy {
         `/answers?callback_id=${encodeURIComponent(callbackId)}`,
         {
           method: 'POST',
-          body: JSON.stringify({}),
+          body: JSON.stringify({ notification: 'Готово' }),
         },
       );
     } catch (error) {

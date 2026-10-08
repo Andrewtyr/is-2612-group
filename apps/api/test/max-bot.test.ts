@@ -47,6 +47,33 @@ describe('MAX bot webhook', () => {
 });
 
 describe('MAX bot messages', () => {
+  it('shows the admin menu only to the configured MAX ID', async () => {
+    vi.stubEnv('MAX_BOT_TOKEN', 'test-token');
+    vi.stubEnv('MAX_ADMIN_USER_IDS', '42');
+    const request = vi.fn(async (...args: [string, RequestInit]) => {
+      expect(args).toHaveLength(2);
+      return { ok: true, text: async () => '{}' };
+    });
+    vi.stubGlobal('fetch', request);
+
+    await bot().handleWebhook({
+      update_type: 'message_callback',
+      timestamp: 1,
+      callback: {
+        callback_id: 'admin-1',
+        payload: 'admin:menu',
+        user: { user_id: 42 },
+      },
+    });
+
+    const sent = JSON.parse(String(request.mock.calls[1][1]?.body));
+    expect(sent.text).toContain('Меню администратора');
+    expect(sent.attachments[0].payload.buttons.flat()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ payload: 'mark:lessons' }),
+      ]),
+    );
+  });
   it('saves an absence and its selected reason for the linked head', async () => {
     vi.stubEnv('MAX_BOT_TOKEN', 'test-token');
     vi.stubEnv('MAX_HEAD_USER_IDS', '42');
@@ -234,7 +261,7 @@ describe('MAX bot messages', () => {
 
     expect(request).toHaveBeenCalledTimes(2);
     expect(request.mock.calls[0][0]).toContain('/answers?callback_id=');
-    expect(request.mock.calls[0][1].body).toBe('{}');
+    expect(request.mock.calls[0][1].body).toBe('{"notification":"Готово"}');
     expect(JSON.parse(String(request.mock.calls[1][1].body)).text).toContain(
       'Недостаточно прав',
     );
