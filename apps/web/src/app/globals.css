@@ -307,10 +307,11 @@ button {
   max-width: 900px;
   width: 100%;
   display: flex;
-  justify-content: space-around;
+  justify-content: center;
+  gap: 8px;
   background: white;
   border-top: 1px solid #e9eef3;
-  padding: 15px 4px 20px;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
   color: #889aaa;
   font-size: 12px;
 }
@@ -321,9 +322,18 @@ button {
 .bottom-nav a {
   text-decoration: none;
   color: #889aaa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: #f1f4f8;
 }
 .bottom-nav a.selected {
   color: #315ee8;
+  background: #e1e9ff;
 }
 .sync-note {
   color: #8a9aab;
@@ -374,6 +384,57 @@ button {
   color: #3154aa;
   padding: 12px 15px;
   border-radius: 10px;
+}
+.feedback-toast {
+  position: fixed;
+  z-index: 50;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(520px, calc(100vw - 28px));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #1d3554;
+  color: white;
+  box-shadow: 0 12px 32px #10243e55;
+  line-height: 1.35;
+}
+.feedback-toast button {
+  flex: none;
+  border: 0;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  background: #ffffff28;
+  color: white;
+  font-size: 23px;
+  line-height: 1;
+}
+.copy-attendance {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid #dce5ee;
+  border-radius: 14px;
+  display: grid;
+  gap: 10px;
+}
+.copy-attendance label {
+  font-weight: 700;
+}
+.copy-attendance select {
+  flex: 1;
+  min-width: 180px;
+  padding: 10px;
+  border: 1px solid #dce4ec;
+  border-radius: 9px;
+  background: white;
+}
+.copy-attendance .muted {
+  font-size: 13px;
 }
 .stats-grid {
   display: grid;
@@ -560,7 +621,22 @@ th {
     margin: 75px auto;
   }
   .bottom-nav {
-    padding-bottom: 25px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+    padding: 9px 10px calc(9px + env(safe-area-inset-bottom));
+    font-size: 11px;
+  }
+  .bottom-nav a {
+    min-width: 0;
+    min-height: 42px;
+    padding: 8px 3px;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.15;
+  }
+  .shell {
+    padding-bottom: calc(148px + env(safe-area-inset-bottom));
   }
 }
 @media (max-width: 600px) {

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MaxBotService } from '../src/integrations/max/max-bot.service';
 import type { PrismaService } from '../src/database/prisma.service';
 import type { AcademyService } from '../src/integrations/academy/academy.service';
+import { isoDate, todayInNovosibirsk } from '../src/common/group';
 
 function bot() {
   return new MaxBotService({} as PrismaService, {} as AcademyService);
@@ -46,6 +47,100 @@ describe('MAX bot webhook', () => {
 });
 
 describe('MAX bot messages', () => {
+  it('saves an absence and its selected reason for the linked head', async () => {
+    vi.stubEnv('MAX_BOT_TOKEN', 'test-token');
+    vi.stubEnv('MAX_HEAD_USER_IDS', '42');
+    const date = isoDate(todayInNovosibirsk());
+    const student = { id: 'student-1', firstName: 'Иван', lastName: 'Петров' };
+    const head = {
+      id: 'head-1',
+      login: 'is2612-07',
+      role: 'HEAD',
+      status: 'ACTIVE',
+    };
+    const tx = {
+      attendance: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        upsert: vi.fn().mockResolvedValue({ id: 'attendance-1' }),
+      },
+      attendanceHistory: { create: vi.fn().mockResolvedValue({}) },
+      auditLog: { create: vi.fn().mockResolvedValue({}) },
+      notification: { create: vi.fn().mockResolvedValue({}) },
+    };
+    const prisma = {
+      group: { findUnique: vi.fn().mockResolvedValue({ id: 'group-1' }) },
+      lesson: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'lesson-1',
+          groupId: 'group-1',
+          lessonNumber: 3,
+          date,
+          status: 'PLANNED',
+          subject: { name: 'Литература' },
+        }),
+      },
+      groupMember: {
+        findMany: vi
+          .fn()
+          .mockImplementation(
+            ({ where }: { where: { user: { role: { in: string[] } } } }) =>
+              Promise.resolve(
+                where.user.role.in.includes('STUDENT')
+                  ? [{ user: student }]
+                  : [{ user: head }],
+              ),
+          ),
+        findFirst: vi.fn().mockResolvedValue({ id: 'membership-1' }),
+      },
+      attendance: {
+        findMany: vi
+          .fn()
+          .mockResolvedValue([{ studentId: student.id, status: 'ABSENT' }]),
+      },
+      $transaction: vi.fn(
+        async (callback: (client: typeof tx) => Promise<void>) => callback(tx),
+      ),
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, text: async () => '{}' })),
+    );
+    const service = new MaxBotService(
+      prisma as unknown as PrismaService,
+      {} as AcademyService,
+    );
+
+    await service.handleWebhook({
+      update_type: 'message_callback',
+      timestamp: 1,
+      callback: {
+        callback_id: 'mark-1',
+        payload: 'mark:reason:lesson-1:student-1:ABSENT:illness',
+        user: { user_id: 42 },
+      },
+    });
+
+    expect(tx.attendance.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          status: 'ABSENT',
+          markedBy: head.id,
+        }),
+      }),
+    );
+    expect(tx.attendanceHistory.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          reason: expect.stringContaining('Болезнь'),
+        }),
+      }),
+    );
+    expect(tx.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ action: 'ATTENDANCE_MARK_MAX' }),
+      }),
+    );
+  });
   it('shows the MAX user ID without exposing group data', async () => {
     vi.stubEnv('MAX_BOT_TOKEN', 'test-token');
     const request = vi.fn(async (...args: [string, RequestInit]) => {

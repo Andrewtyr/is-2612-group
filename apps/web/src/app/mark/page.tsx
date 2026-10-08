@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 
 type Lesson = {
   id: string;
+  date: string;
   lessonNumber: number;
   startTime: string;
   endTime: string;
@@ -24,6 +25,8 @@ export default function MarkPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [marks, setMarks] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('');
+  const [copyFromId, setCopyFromId] = useState('');
+  const [copying, setCopying] = useState(false);
 
   useEffect(() => {
     api<Lesson[]>('/schedule/today')
@@ -33,6 +36,7 @@ export default function MarkPage() {
 
   async function open(lesson: Lesson) {
     setMessage('');
+    setCopyFromId('');
     try {
       const roster = await api<Member[]>(`/lessons/${lesson.id}/attendance`);
       setSelected(lesson);
@@ -70,6 +74,65 @@ export default function MarkPage() {
     }
   }
 
+  async function copyFromLesson() {
+    if (!selected || !copyFromId || copying) return;
+    const source = lessons.find((lesson) => lesson.id === copyFromId);
+    if (
+      !source ||
+      source.id === selected.id ||
+      source.date.slice(0, 10) !== selected.date.slice(0, 10) ||
+      source.status === 'CANCELLED'
+    ) {
+      setMessage('Можно копировать отметки только между парами одного дня.');
+      return;
+    }
+    setCopying(true);
+    try {
+      const [sourceRoster, targetRoster] = await Promise.all([
+        api<Member[]>(`/lessons/${source.id}/attendance`),
+        api<Member[]>(`/lessons/${selected.id}/attendance`),
+      ]);
+      const target = new Map(
+        targetRoster.map((member) => [member.student.id, member]),
+      );
+      const entries = sourceRoster
+        .filter((member) => {
+          const destination = target.get(member.student.id);
+          return (
+            member.attendance &&
+            destination &&
+            !destination.attendance &&
+            !marks[member.student.id]
+          );
+        })
+        .map((member) => ({
+          studentId: member.student.id,
+          status: member.attendance!.status,
+        }));
+      if (!entries.length) {
+        setMessage(
+          'Новых отметок для копирования нет. Уже выставленные отметки сохранены.',
+        );
+        return;
+      }
+      await api(`/lessons/${selected.id}/attendance`, {
+        method: 'POST',
+        body: JSON.stringify({
+          entries,
+          reason: `Скопировано с ${source.lessonNumber} пары`,
+        }),
+      });
+      await open(selected);
+      setMessage(
+        `Скопировано ${entries.length} отметок с ${source.lessonNumber} пары. Уже выставленные отметки не изменены.`,
+      );
+    } catch (error) {
+      setMessage((error as Error).message);
+    } finally {
+      setCopying(false);
+    }
+  }
+
   return (
     <main className="shell">
       <div className="page-head">
@@ -81,7 +144,18 @@ export default function MarkPage() {
           <p className="muted">Выберите пару и отметьте исключения</p>
         </div>
       </div>
-      {message && <p className="notice">{message}</p>}
+      {message && (
+        <div className="feedback-toast" role="status">
+          <span>{message}</span>
+          <button
+            type="button"
+            onClick={() => setMessage('')}
+            aria-label="Закрыть уведомление"
+          >
+            ×
+          </button>
+        </div>
+      )}
       <div className="lessons">
         {lessons.map((lesson) => (
           <button
@@ -118,6 +192,53 @@ export default function MarkPage() {
           >
             Все присутствуют
           </button>
+          {lessons.some(
+            (lesson) =>
+              lesson.id !== selected.id &&
+              lesson.date.slice(0, 10) === selected.date.slice(0, 10) &&
+              lesson.status !== 'CANCELLED',
+          ) && (
+            <div className="copy-attendance">
+              <label htmlFor="copy-from-lesson">
+                Скопировать отметки с другой пары этого дня
+              </label>
+              <div className="row">
+                <select
+                  id="copy-from-lesson"
+                  value={copyFromId}
+                  onChange={(event) => setCopyFromId(event.target.value)}
+                >
+                  <option value="">Выберите пару</option>
+                  {lessons
+                    .filter(
+                      (lesson) =>
+                        lesson.id !== selected.id &&
+                        lesson.date.slice(0, 10) ===
+                          selected.date.slice(0, 10) &&
+                        lesson.status !== 'CANCELLED',
+                    )
+                    .map((lesson) => (
+                      <option key={lesson.id} value={lesson.id}>
+                        {lesson.lessonNumber} пара ·{' '}
+                        {lesson.subject?.name ?? 'Занятие'}
+                      </option>
+                    ))}
+                </select>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={copyFromLesson}
+                  disabled={!copyFromId || copying}
+                >
+                  {copying ? 'Копирую…' : 'Скопировать'}
+                </button>
+              </div>
+              <p className="muted">
+                Копируются только отмеченные студенты. Отметки, уже выставленные
+                на этой паре, сохранятся.
+              </p>
+            </div>
+          )}
           <div className="roster">
             {members.map((member) => (
               <div key={member.student.id} className="roster-row">
