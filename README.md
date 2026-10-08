@@ -23,3 +23,4 @@ Node.js 22, pnpm 11, Docker Desktop.
 `pnpm ci:local` проверяет форматирование, lint, типы, тесты и сборку. Для отдельной проверки Docker используйте `docker compose build`.
 
 Документация архитектуры находится в `docs/architecture.md`, инструкции для сервера — в `docs/deployment.md`.
+Инструкция по подключению MAX-бота — в `docs/max-bot.md`.

@@ -13,6 +13,8 @@ import { AbsenceController } from './modules/absence/absence.controller';
 import { AcademyService } from './integrations/academy/academy.service';
 import { AuditController } from './modules/audit/audit.controller';
 import { NotificationsController } from './modules/notifications/notifications.controller';
+import { MaxBotController } from './integrations/max/max-bot.controller';
+import { MaxBotService } from './integrations/max/max-bot.service';
 
 @Module({
   controllers: [
@@ -25,10 +27,12 @@ import { NotificationsController } from './modules/notifications/notifications.c
     AbsenceController,
     AuditController,
     NotificationsController,
+    MaxBotController,
   ],
   providers: [
     PrismaService,
     AcademyService,
+    MaxBotService,
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
