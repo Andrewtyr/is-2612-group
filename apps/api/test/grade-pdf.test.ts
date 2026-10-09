@@ -21,6 +21,8 @@ describe('grade journal PDF', () => {
       2026,
     );
     expect(page?.rows).toHaveLength(2);
+    expect(page?.rows[0].name).toBe('Беляев Григорий Андреевич.');
+    expect(page?.rows[1].name).toBe('Ворончихин Роман Игоревич');
     expect(page?.rows[0].grades[0].value).toBe('4');
     expect(page?.rows[1].grades[0].value).toBe('5');
   });

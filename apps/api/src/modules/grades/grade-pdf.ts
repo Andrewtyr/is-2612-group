@@ -77,7 +77,7 @@ export function extractGradePage(
           (item) =>
             Math.abs(item.y - numberItem.y) < 3 &&
             item.x > numberItem.x + 7 &&
-            item.x < firstDateX - 3,
+            item.x < firstDateX - 8,
         )
         .sort((a, b) => a.x - b.x)
         .map((item) => item.str)
