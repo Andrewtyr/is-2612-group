@@ -271,6 +271,8 @@ model GradeImport {
   createdBy         String
   createdAt         DateTime     @default(now())
   entries           GradeEntry[]
+
+  @@map("GradePdfImport")
 }
 
 model GradeEntry {
