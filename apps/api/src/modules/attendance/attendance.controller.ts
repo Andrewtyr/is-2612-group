@@ -8,13 +8,15 @@ import {
   NotFoundException,
   Param,
   Post,
+  Query,
   Req,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { Roles } from '../../common/roles.decorator';
 import { parseInput } from '../../common/input';
-import { primaryGroup } from '../../common/group';
+import { isoDate, primaryGroup, todayInNovosibirsk } from '../../common/group';
 import { canEditAttendance } from './attendance-policy';
+import { buildWeeklyReport, weekMonday } from './weekly-report';
 import type { AuthRequest } from '../../common/auth.guard';
 import { z } from 'zod';
 
@@ -41,6 +43,54 @@ const entriesSchema = z.object({
 @Controller()
 export class AttendanceController {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+
+  @Roles('HEAD', 'ADMIN')
+  @Get('attendance/reports/weekly')
+  async weeklyReport(@Query('week') week?: string) {
+    const requested = week ?? todayInNovosibirsk();
+    isoDate(requested);
+    const monday = weekMonday(requested);
+    const from = isoDate(monday);
+    const to = new Date(from);
+    to.setUTCDate(to.getUTCDate() + 7);
+    const group = await primaryGroup(this.prisma);
+    const [members, lessons] = await Promise.all([
+      this.prisma.groupMember.findMany({
+        where: {
+          groupId: group.id,
+          user: {
+            role: { in: ['STUDENT', 'HEAD', 'DEPUTY'] },
+            status: 'ACTIVE',
+          },
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              middleName: true,
+            },
+          },
+        },
+        orderBy: { user: { lastName: 'asc' } },
+      }),
+      this.prisma.lesson.findMany({
+        where: { groupId: group.id, date: { gte: from, lt: to } },
+        select: { id: true, date: true, status: true },
+      }),
+    ]);
+    const marks = await this.prisma.attendance.findMany({
+      where: { lessonId: { in: lessons.map((lesson) => lesson.id) } },
+      select: { lessonId: true, studentId: true, status: true },
+    });
+    return buildWeeklyReport(
+      monday,
+      members.map(({ user }) => user),
+      lessons,
+      marks,
+    );
+  }
 
   @Roles('HEAD', 'DEPUTY', 'CURATOR', 'ADMIN')
   @Get('lessons/:id/attendance')

@@ -358,12 +358,19 @@ export default function Home() {
         </Link>
         <Link href="/schedule">Расписание</Link>
         <Link href="/attendance">Посещаемость</Link>
+        <Link href="/grades">Оценки</Link>
         <Link href="/notifications">Уведомления</Link>
         {['HEAD', 'DEPUTY', 'CURATOR', 'ADMIN'].includes(user.role) && (
           <Link href="/mark">Отметить</Link>
         )}
+        {['HEAD', 'ADMIN'].includes(user.role) && (
+          <Link href="/reports">Отчёт</Link>
+        )}
         {['CURATOR', 'ADMIN'].includes(user.role) && (
           <Link href="/manage">Управление</Link>
+        )}
+        {user.role === 'ADMIN' && (
+          <Link href="/grades/import">Загрузить оценки</Link>
         )}
       </nav>
     </main>

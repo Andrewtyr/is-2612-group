@@ -65,6 +65,7 @@ model User {
   auditEntries    AuditLog[]
   parentLinks     ParentStudent[]     @relation("Parent")
   childLinks      ParentStudent[]     @relation("Child")
+  grades          GradeEntry[]        @relation("StudentGrades")
 }
 
 model Group {
@@ -260,4 +261,30 @@ model SyncState {
   lastAttempt DateTime?
   lastSuccess DateTime?
   lastError   String?
+}
+
+model GradeImport {
+  id                String       @id @default(cuid())
+  checksum          String       @unique
+  fileName          String
+  academicYearStart Int
+  createdBy         String
+  createdAt         DateTime     @default(now())
+  entries           GradeEntry[]
+}
+
+model GradeEntry {
+  id          String      @id @default(cuid())
+  studentId   String
+  subject     String
+  date        DateTime    @db.Date
+  columnIndex Int
+  value       String
+  importId    String
+  updatedAt   DateTime    @updatedAt
+  student     User        @relation("StudentGrades", fields: [studentId], references: [id])
+  import      GradeImport @relation(fields: [importId], references: [id])
+
+  @@unique([studentId, subject, date, columnIndex])
+  @@index([studentId, subject])
 }

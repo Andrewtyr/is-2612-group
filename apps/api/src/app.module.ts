@@ -15,6 +15,7 @@ import { AuditController } from './modules/audit/audit.controller';
 import { NotificationsController } from './modules/notifications/notifications.controller';
 import { MaxBotController } from './integrations/max/max-bot.controller';
 import { MaxBotService } from './integrations/max/max-bot.service';
+import { GradesController } from './modules/grades/grades.controller';
 
 @Module({
   controllers: [
@@ -28,6 +29,7 @@ import { MaxBotService } from './integrations/max/max-bot.service';
     AuditController,
     NotificationsController,
     MaxBotController,
+    GradesController,
   ],
   providers: [
     PrismaService,
