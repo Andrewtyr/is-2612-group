@@ -40,8 +40,7 @@ function normalizedName(value: string) {
   return value
     .toLocaleLowerCase('ru-RU')
     .replace(/ё/g, 'е')
-    .replace(/\s+/g, ' ')
-    .trim();
+    .replace(/[^а-я]/g, '');
 }
 
 @Controller('grades')

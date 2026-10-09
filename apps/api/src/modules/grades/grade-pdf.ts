@@ -83,7 +83,7 @@ export function extractGradePage(
         .map((item) => item.str)
         .join(' '),
     );
-    if (!/^[А-ЯЁ][а-яё-]+(?:\s+[А-ЯЁ][а-яё-]+){1,2}$/.test(name)) return [];
+    if (name.length < 6 || !/[А-Яа-яЁё]/.test(name)) return [];
     const grades = items
       .filter(
         (item) =>

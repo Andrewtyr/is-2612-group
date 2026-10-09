@@ -17,6 +17,11 @@ type Preview = {
   pages: GradePage[];
 };
 
+function formatDate(value: string) {
+  const [year, month, day] = value.split('-');
+  return `${day}.${month}.${year}`;
+}
+
 export default function GradeImportPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [file, setFile] = useState<File | null>(null);
@@ -175,8 +180,10 @@ export default function GradeImportPage() {
       {preview && (
         <>
           <p className="muted">
-            Найдено предметов: {preview.pages.length}. Строк без сопоставления:{' '}
-            {unmatched}. «нб» показывается отдельно от числовых оценок.
+            Найдено предметов: {preview.pages.length}. Строк журнала:{' '}
+            {preview.pages.reduce((count, page) => count + page.rows.length, 0)}
+            . Строк без сопоставления: {unmatched}. «нб» показывается отдельно
+            от числовых оценок.
           </p>
           {preview.pages.map((page, pageIndex) => (
             <section
@@ -192,7 +199,7 @@ export default function GradeImportPage() {
                       <th scope="col">Аккаунт группы</th>
                       {page.dates.map((date) => (
                         <th scope="col" key={date.columnIndex}>
-                          {date.date.slice(5)}
+                          {formatDate(date.date)}
                         </th>
                       ))}
                     </tr>
