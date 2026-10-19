@@ -160,6 +160,59 @@ button {
 .report-table thead {
   background: #eef3ff;
 }
+.grade-import-controls {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.grade-import-controls label,
+.grade-subject-name {
+  display: grid;
+  gap: 6px;
+  color: #52677c;
+  font-size: 13px;
+  font-weight: 700;
+}
+.grade-import-controls input,
+.grade-subject-name input,
+.grade-preview-table input,
+.grade-preview-table select {
+  border: 1px solid #d5dfec;
+  border-radius: 9px;
+  background: white;
+  padding: 8px;
+}
+.grade-subject-name input {
+  width: min(100%, 500px);
+  color: #18344f;
+  font-size: 17px;
+}
+.grade-source-preview {
+  margin: 14px 0;
+}
+.grade-source-preview summary {
+  color: #315ee8;
+  cursor: pointer;
+  font-weight: 700;
+}
+.grade-source-preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 700px;
+  margin-top: 12px;
+  object-fit: contain;
+}
+.grade-preview-table input[type='date'] {
+  width: 145px;
+}
+.grade-preview-table td select {
+  min-width: 75px;
+}
+.grade-preview-table .grade-needs-review {
+  border-color: #d6633e;
+  background: #fff3ed;
+}
 .report-hours {
   display: inline-flex;
   align-items: center;
@@ -181,15 +234,35 @@ button {
   font-weight: 700;
 }
 @media print {
-  @page { size: A4 landscape; margin: 10mm; }
-  .report-page { max-width: none; padding: 0; }
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+  .report-page {
+    max-width: none;
+    padding: 0;
+  }
   .report-page .back-link,
-  .report-controls { display: none; }
-  .report-scroll { overflow: visible; border: none; }
-  .report-table { min-width: 0; font-size: 10px; }
+  .report-controls {
+    display: none;
+  }
+  .report-scroll {
+    overflow: visible;
+    border: none;
+  }
+  .report-table {
+    min-width: 0;
+    font-size: 10px;
+  }
   .report-table th,
-  .report-table td { padding: 5px 3px; border-color: #444; }
-  .report-excused { min-width: 18px; min-height: 18px; }
+  .report-table td {
+    padding: 5px 3px;
+    border-color: #444;
+  }
+  .report-excused {
+    min-width: 18px;
+    min-height: 18px;
+  }
 }
 .topbar,
 .brand,

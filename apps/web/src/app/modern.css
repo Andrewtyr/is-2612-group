@@ -600,6 +600,101 @@ tbody tr:hover {
 .grade-absence {
   color: #a05227;
 }
+.admin-grades-controls {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.admin-grades-controls label {
+  flex-basis: 100%;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.admin-grades-controls select {
+  flex: 1 1 250px;
+  min-width: 0;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: white;
+}
+.grade-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 10px 15px;
+  border-radius: 11px;
+  background: var(--accent);
+  color: white;
+  font-weight: 700;
+  text-decoration: none;
+}
+.grade-action.secondary {
+  background: var(--soft);
+  color: var(--accent);
+}
+.grade-action[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.admin-grade-panel {
+  padding: 0;
+  overflow: hidden;
+}
+.admin-grade-heading {
+  padding: 22px 24px 8px;
+}
+.admin-grade-heading h2 {
+  margin: 0;
+}
+.admin-grade-scroll {
+  overflow-x: auto;
+}
+.admin-grade-table {
+  width: 100%;
+  min-width: 420px;
+  table-layout: fixed;
+}
+.admin-grade-table th:first-child {
+  width: 34%;
+}
+.admin-grade-table th,
+.admin-grade-table td {
+  padding: 17px 22px;
+  vertical-align: top;
+}
+.admin-grade-table tbody th {
+  color: var(--ink);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.admin-grade-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.admin-grade-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: #e9f5f0;
+  color: #08715e;
+  white-space: nowrap;
+}
+.admin-grade-chip.absence {
+  background: #fff2e6;
+  color: #a05227;
+}
+.admin-grade-chip small {
+  font-size: 11px;
+  opacity: 0.8;
+}
 .notification-card.unread {
   border-left: 3px solid var(--accent);
   background: #fcfefd;

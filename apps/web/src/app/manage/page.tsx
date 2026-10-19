@@ -363,6 +363,15 @@ export default function ManagePage() {
       {tab === 'overview' && (
         <>
           <div className="panel">
+            <h3>Оценки группы</h3>
+            <p className="muted">
+              Просмотр по ученикам, загрузка журнала и PDF для печати.
+            </p>
+            <Link className="grade-action" href="/grades/admin">
+              Открыть оценки
+            </Link>
+          </div>
+          <div className="panel">
             <h3>Расписание академии</h3>
             <p className="muted">
               {syncState?.lastSuccess

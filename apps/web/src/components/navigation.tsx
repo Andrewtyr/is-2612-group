@@ -85,7 +85,7 @@ export default function Navigation() {
       ? [{ href: '/manage', label: 'Управление', icon: 'settings' }]
       : []),
     ...(user.role === 'ADMIN'
-      ? [{ href: '/grades/import', label: 'Загрузка оценок', icon: 'upload' }]
+      ? [{ href: '/grades/admin', label: 'Оценки группы', icon: 'book' }]
       : []),
   ];
   const renderLink = (link: (typeof links)[number]) => (

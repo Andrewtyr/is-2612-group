@@ -1,4 +1,5 @@
 FROM node:22-alpine
+RUN apk add --no-cache libgxps font-dejavu
 RUN npm install -g pnpm@11.19.0
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./

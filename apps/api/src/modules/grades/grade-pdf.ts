@@ -6,10 +6,16 @@ export type GradePdfItem = {
 
 export type ParsedGradePage = {
   subject: string;
-  dates: { date: string; columnIndex: number }[];
+  dates: { date: string; columnIndex: number; needsReview?: boolean }[];
   rows: {
     name: string;
-    grades: { date: string; columnIndex: number; value: string }[];
+    grades: {
+      date: string;
+      columnIndex: number;
+      value: string;
+      needsReview?: boolean;
+      raw?: string;
+    }[];
   }[];
 };
 
@@ -17,7 +23,7 @@ function clean(value: string) {
   return value.replace(/\s+/g, ' ').trim();
 }
 
-function dateForSchoolYear(value: string, schoolYearStart: number) {
+export function dateForSchoolYear(value: string, schoolYearStart: number) {
   const match = /^(\d{1,2})[./](\d{1,2})$/.exec(value);
   if (!match) return null;
   const day = Number(match[1]);

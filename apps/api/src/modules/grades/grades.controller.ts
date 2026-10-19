@@ -4,11 +4,15 @@ import {
   Controller,
   Get,
   Inject,
+  NotFoundException,
+  Param,
   PayloadTooLargeException,
   Post,
   Query,
   Req,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { createHash } from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { Roles } from '../../common/roles.decorator';
@@ -16,6 +20,8 @@ import { isoDate, primaryGroup } from '../../common/group';
 import { parseInput } from '../../common/input';
 import type { AuthRequest } from '../../common/auth.guard';
 import { parseGradePdf } from './grade-pdf';
+import { parseGradeXps } from './grade-xps';
+import { renderStudentGradesPdf } from './grade-export';
 import { z } from 'zod';
 
 const importSchema = z.object({
@@ -92,6 +98,70 @@ export class GradesController {
     }));
   }
 
+  private async studentGrades(id: string) {
+    const group = await primaryGroup(this.prisma);
+    const member = await this.prisma.groupMember.findFirst({
+      where: {
+        groupId: group.id,
+        userId: id,
+        user: { role: { in: ['STUDENT', 'HEAD', 'DEPUTY'] }, status: 'ACTIVE' },
+      },
+      include: {
+        user: {
+          select: { firstName: true, lastName: true, middleName: true },
+        },
+      },
+    });
+    if (!member) throw new NotFoundException('Ученик не найден в группе');
+    const grades = await this.prisma.gradeEntry.findMany({
+      where: { studentId: id },
+      select: {
+        id: true,
+        subject: true,
+        date: true,
+        value: true,
+        columnIndex: true,
+      },
+      orderBy: [{ subject: 'asc' }, { date: 'asc' }, { columnIndex: 'asc' }],
+    });
+    return {
+      student: {
+        id,
+        name: [
+          member.user.lastName,
+          member.user.firstName,
+          member.user.middleName,
+        ]
+          .filter(Boolean)
+          .join(' '),
+      },
+      grades,
+    };
+  }
+
+  @Roles('ADMIN')
+  @Get('students/:id/pdf')
+  async studentPdf(@Param('id') id: string, @Res() response: Response) {
+    const result = await this.studentGrades(id);
+    const pdf = await renderStudentGradesPdf(
+      result.student.name,
+      result.grades,
+    );
+    response.setHeader('Content-Type', 'application/pdf');
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="grades-${id}.pdf"`,
+    );
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+    return response.send(pdf);
+  }
+
+  @Roles('ADMIN')
+  @Get('students/:id')
+  student(@Param('id') id: string) {
+    return this.studentGrades(id);
+  }
+
   @Roles('ADMIN')
   @Post('preview')
   async preview(@Req() request: AuthRequest, @Query('year') yearText?: string) {
@@ -102,10 +172,6 @@ export class GradesController {
       academicYearStart > 2100
     )
       throw new BadRequestException('Укажите первый год учебного года');
-    if (
-      !String(request.headers['content-type'] ?? '').includes('application/pdf')
-    )
-      throw new BadRequestException('Нужен файл PDF');
     const chunks: Buffer[] = [];
     let size = 0;
     for await (const chunk of request) {
@@ -114,21 +180,27 @@ export class GradesController {
         : Buffer.from(chunk as string);
       size += buffer.length;
       if (size > 10_000_000)
-        throw new PayloadTooLargeException('PDF больше 10 МБ');
+        throw new PayloadTooLargeException('Файл больше 10 МБ');
       chunks.push(buffer);
     }
     const data = Buffer.concat(chunks);
-    if (!data.subarray(0, 5).equals(Buffer.from('%PDF-')))
-      throw new BadRequestException('Файл не является PDF');
+    const isPdf = data.subarray(0, 5).equals(Buffer.from('%PDF-'));
+    const isXps = data
+      .subarray(0, 4)
+      .equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
+    if (!isPdf && !isXps)
+      throw new BadRequestException('Нужен файл PDF или XPS');
     let pages;
     try {
-      pages = await parseGradePdf(new Uint8Array(data), academicYearStart);
+      pages = isPdf
+        ? await parseGradePdf(new Uint8Array(data), academicYearStart)
+        : await parseGradeXps(data, academicYearStart);
     } catch {
-      throw new BadRequestException('Не удалось прочитать PDF с оценками');
+      throw new BadRequestException('Не удалось прочитать журнал с оценками');
     }
     if (!pages.length)
       throw new BadRequestException(
-        'Не найдены таблицы с предметом и датами. Проверьте PDF или его качество.',
+        'Не найдены таблицы с предметом и датами. Проверьте файл или его качество.',
       );
     const students = await this.students();
     const studentByName = new Map(
@@ -137,6 +209,7 @@ export class GradesController {
     return {
       checksum: createHash('sha256').update(data).digest('hex'),
       academicYearStart,
+      format: isPdf ? 'pdf' : 'xps',
       pages: pages.map((page) => ({
         ...page,
         rows: page.rows.map((row) => ({
