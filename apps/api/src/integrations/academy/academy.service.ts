@@ -12,6 +12,7 @@ import {
   parseChangePdfUrl,
   parseGroupId,
   parseGroupLessons,
+  selectLessonBell,
   type AcademyBell,
   type AcademyLesson,
 } from './academy-parser';
@@ -25,6 +26,14 @@ import { notifyGroup } from '../../common/group-notifications';
 
 const scheduleOrigin = 'https://schedule.altag.ru';
 const bellsUrl = 'https://altag.ru/student/schedule/call_schedule';
+
+class MissingBellError extends Error {
+  constructor(date: Date, lessonNumber: number) {
+    super(
+      `${date.toISOString().slice(0, 10)}, ${lessonNumber} пара: на сайте академии не указано время`,
+    );
+  }
+}
 
 @Injectable()
 export class AcademyService implements OnModuleInit, OnModuleDestroy {
@@ -97,11 +106,14 @@ export class AcademyService implements OnModuleInit, OnModuleDestroy {
       ]);
       const groupId = parseGroupId(groupHtml, group.name);
       const bells = parseBellSchedule(bellsHtml);
-      if (bells.length < 10)
+      if (
+        bells.filter((bell) => bell.dayScheme !== 'MON_CLASS_HOUR').length < 10
+      )
         throw new Error('Расписание звонков неожиданно короткое');
       await this.saveBells(group.id, bells);
       const start = isoDate(todayInNovosibirsk());
       let count = 0;
+      const missingTimes = new Set<string>();
       for (let offset = 0; offset < 7; offset++) {
         const date = new Date(start);
         date.setUTCDate(date.getUTCDate() + offset);
@@ -117,28 +129,46 @@ export class AcademyService implements OnModuleInit, OnModuleDestroy {
         const pdfUrl = parseChangePdfUrl(changesHtml, dateText);
         const pdfChanges = pdfUrl ? await this.loadPdf(pdfUrl, group.name) : [];
         for (const lesson of lessons) {
-          await this.saveLesson(
-            group.id,
-            date,
-            lesson,
-            bells,
-            pdfChanges.some(
-              (change) =>
-                lesson.subgroup === '' &&
-                change.lessonNumber === lesson.lessonNumber,
-            ),
-          );
-          count++;
+          try {
+            await this.saveLesson(
+              group.id,
+              date,
+              lesson,
+              bells,
+              pdfChanges.some(
+                (change) =>
+                  lesson.subgroup === '' &&
+                  change.lessonNumber === lesson.lessonNumber,
+              ),
+            );
+            count++;
+          } catch (error) {
+            if (!(error instanceof MissingBellError)) throw error;
+            missingTimes.add(error.message);
+          }
         }
         for (const change of pdfChanges) {
-          await this.savePdfChange(group.id, date, change, bells, pdfUrl!);
+          try {
+            await this.savePdfChange(group.id, date, change, bells, pdfUrl!);
+          } catch (error) {
+            if (!(error instanceof MissingBellError)) throw error;
+            missingTimes.add(error.message);
+          }
         }
       }
+      const warning = missingTimes.size
+        ? `Не удалось поставить по времени: ${[...missingTimes].join('; ')}. Остальные занятия обновлены.`
+        : null;
       await this.prisma.syncState.update({
         where: { id: stateId },
-        data: { lastSuccess: new Date(), lastError: null },
+        data: { lastSuccess: new Date(), lastError: warning },
       });
-      return { status: 'ok', lessons: count };
+      if (warning) this.logger.warn(warning);
+      return {
+        status: warning ? 'partial' : 'ok',
+        lessons: count,
+        warning,
+      };
     } catch (error) {
       if (stateId) {
         await this.prisma.syncState.update({
@@ -186,9 +216,22 @@ export class AcademyService implements OnModuleInit, OnModuleDestroy {
     });
     if (old?.source === 'manual') return;
     if (change.status === 'CANCELLED' && !old) return;
+    const weekday = date.getUTCDay();
+    const scheme = weekday === 1 ? 'MON' : weekday === 6 ? 'SAT' : 'TUE_FRI';
+    const bell = selectLessonBell(
+      bells,
+      scheme,
+      change.lessonNumber,
+      change.status === 'CANCELLED'
+        ? (old?.subject?.name ?? '')
+        : change.subject,
+    );
+    if (!bell) throw new MissingBellError(date, change.lessonNumber);
     if (
       old &&
       old.status !== 'CANCELLED' &&
+      old.startTime === bell.startTime &&
+      old.endTime === bell.endTime &&
       sameOfficialLesson(
         {
           subject: old.subject?.name ?? '',
@@ -199,19 +242,14 @@ export class AcademyService implements OnModuleInit, OnModuleDestroy {
       )
     )
       return;
-    const weekday = date.getUTCDay();
-    const scheme = weekday === 1 ? 'MON' : weekday === 6 ? 'SAT' : 'TUE_FRI';
-    const bell = bells.find(
-      (item) =>
-        item.dayScheme === scheme && item.lessonNumber === change.lessonNumber,
-    );
-    if (!bell) throw new Error(`Неизвестное время ${change.lessonNumber} пары`);
     const before = old
       ? {
           subject: old.subject?.name,
           teacher: old.teacher?.name,
           room: old.room,
           status: old.status,
+          startTime: old.startTime,
+          endTime: old.endTime,
         }
       : null;
     const after = {
@@ -226,6 +264,9 @@ export class AcademyService implements OnModuleInit, OnModuleDestroy {
       room: change.status === 'CANCELLED' ? (old?.room ?? '') : change.room,
       status:
         change.status === 'CANCELLED' ? 'CANCELLED' : old ? 'CHANGED' : 'ADDED',
+      startTime:
+        change.status === 'CANCELLED' ? old?.startTime : bell.startTime,
+      endTime: change.status === 'CANCELLED' ? old?.endTime : bell.endTime,
     };
     if (before && JSON.stringify(before) === JSON.stringify(after)) return;
     await this.prisma.$transaction(async (tx) => {
@@ -262,6 +303,8 @@ export class AcademyService implements OnModuleInit, OnModuleDestroy {
           subjectId: subject?.id ?? undefined,
           teacherId: teacher?.id ?? undefined,
           room: change.status === 'CANCELLED' ? undefined : change.room,
+          startTime: change.status === 'CANCELLED' ? undefined : bell.startTime,
+          endTime: change.status === 'CANCELLED' ? undefined : bell.endTime,
           status: change.status === 'CANCELLED' ? 'CANCELLED' : 'CHANGED',
           source: 'official-pdf',
         },
@@ -323,11 +366,13 @@ export class AcademyService implements OnModuleInit, OnModuleDestroy {
   ) {
     const weekday = date.getUTCDay();
     const scheme = weekday === 1 ? 'MON' : weekday === 6 ? 'SAT' : 'TUE_FRI';
-    const bell = bells.find(
-      (item) =>
-        item.dayScheme === scheme && item.lessonNumber === lesson.lessonNumber,
+    const bell = selectLessonBell(
+      bells,
+      scheme,
+      lesson.lessonNumber,
+      lesson.subject,
     );
-    if (!bell) throw new Error(`Неизвестное время ${lesson.lessonNumber} пары`);
+    if (!bell) throw new MissingBellError(date, lesson.lessonNumber);
     const key = {
       groupId,
       date,

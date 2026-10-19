@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useState } from 'react';
 
 import { api } from '@/lib/api';
+import { lessonLabel } from '@/lib/lesson-label';
 
 type User = {
   id: string;
@@ -262,8 +263,9 @@ export default function Home() {
         <h2>{highlighted?.subject?.name ?? 'Занятий пока нет'}</h2>
         {highlighted && (
           <p>
-            {highlighted.lessonNumber} пара · {highlighted.startTime}–
-            {highlighted.endTime} · кабинет {highlighted.room ?? 'не указан'}
+            {lessonLabel(highlighted.lessonNumber, highlighted.subject?.name)} ·{' '}
+            {highlighted.startTime}–{highlighted.endTime} · кабинет{' '}
+            {highlighted.room ?? 'не указан'}
           </p>
         )}
       </section>
@@ -323,7 +325,9 @@ export default function Home() {
               </div>
               <div className="lesson-content">
                 <div className="lesson-top">
-                  <span>{lesson.lessonNumber} пара</span>
+                  <span>
+                    {lessonLabel(lesson.lessonNumber, lesson.subject?.name)}
+                  </span>
                   {lesson.status !== 'PLANNED' && (
                     <em>
                       {lesson.status === 'CANCELLED' ? 'Отменена' : 'Изменена'}

@@ -4,6 +4,7 @@ import {
   parseChangePdfUrl,
   parseGroupId,
   parseGroupLessons,
+  selectLessonBell,
 } from '../src/integrations/academy/academy-parser';
 
 describe('academy parser', () => {
@@ -68,6 +69,43 @@ describe('academy parser', () => {
         endTime: '13:00',
       },
     ]);
+  });
+
+  it('reads the second-shift class hour before the fourth Monday lesson', () => {
+    const html = `<table id="table">
+      <tr><td>классный час</td><td>8:00 - 8:45</td><td></td><td></td></tr>
+      <tr><td>1 пара</td><td>08:50 - 10:20</td><td>08:00 - 09:30</td><td>08:00 - 09:30</td></tr>
+      <tr><td>3 пара</td><td>12:20 - 13:50</td><td>11:30 - 13:00</td><td>11:30 - 13:00</td></tr>
+      <tr><td>классный час</td><td>13:55 - 14:40</td><td></td><td></td></tr>
+      <tr><td>4 пара</td><td>14:50 - 16:20</td><td>13:10 - 14:40</td><td>13:05 - 14:35</td></tr>
+    </table>`;
+    const bells = parseBellSchedule(html);
+    expect(bells).toContainEqual({
+      dayScheme: 'MON_CLASS_HOUR',
+      lessonNumber: 4,
+      startTime: '13:55',
+      endTime: '14:40',
+    });
+    expect(bells).toContainEqual({
+      dayScheme: 'MON',
+      lessonNumber: 4,
+      startTime: '14:50',
+      endTime: '16:20',
+    });
+  });
+
+  it('uses the special time for class hour without moving the fourth lesson', () => {
+    const bells = parseBellSchedule(`<table id="table">
+      <tr><td>классный час</td><td>13:55 - 14:40</td><td></td><td></td></tr>
+      <tr><td>4 пара</td><td>14:50 - 16:20</td><td>13:10 - 14:40</td><td>13:05 - 14:35</td></tr>
+    </table>`);
+    expect(
+      selectLessonBell(bells, 'MON', 4, 'Классный час «Разговоры о важном»'),
+    ).toMatchObject({ startTime: '13:55', endTime: '14:40' });
+    expect(selectLessonBell(bells, 'MON', 4, 'Математика')).toMatchObject({
+      startTime: '14:50',
+      endTime: '16:20',
+    });
   });
 
   it('selects a change PDF from the requested month', () => {

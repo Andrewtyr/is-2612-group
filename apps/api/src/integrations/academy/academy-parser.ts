@@ -9,7 +9,7 @@ export type AcademyLesson = {
   subgroup: string;
 };
 export type AcademyBell = {
-  dayScheme: 'MON' | 'TUE_FRI' | 'SAT';
+  dayScheme: 'MON' | 'MON_CLASS_HOUR' | 'TUE_FRI' | 'SAT';
   lessonNumber: number;
   startTime: string;
   endTime: string;
@@ -82,6 +82,28 @@ export function parseBellSchedule(html: string): AcademyBell[] {
   $('#table tr').each((_, row) => {
     const cells = $(row).find('td');
     if (cells.length < 4) return;
+    if (/^классный час$/i.test(normalize($(cells[0]).text()))) {
+      const time = normalize($(cells[1]).text()).match(
+        /^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/,
+      );
+      let nextNumber = 0;
+      for (const next of $(row).nextAll('tr').toArray()) {
+        nextNumber = Number(
+          normalize($(next).find('td').first().text()).match(
+            /^(\d+) пара$/,
+          )?.[1],
+        );
+        if (nextNumber) break;
+      }
+      if (time && nextNumber)
+        bells.push({
+          dayScheme: 'MON_CLASS_HOUR',
+          lessonNumber: nextNumber,
+          startTime: time[1].padStart(5, '0'),
+          endTime: time[2].padStart(5, '0'),
+        });
+      return;
+    }
     const number = Number(
       normalize($(cells[0]).text()).match(/^(\d+) пара$/)?.[1],
     );
@@ -101,6 +123,21 @@ export function parseBellSchedule(html: string): AcademyBell[] {
   });
   if (bells.length === 0) throw new Error('Расписание звонков не распознано');
   return bells;
+}
+
+export function selectLessonBell(
+  bells: AcademyBell[],
+  scheme: AcademyBell['dayScheme'],
+  lessonNumber: number,
+  subject: string,
+): AcademyBell | undefined {
+  const isClassHour =
+    scheme === 'MON' && /^классный\s+час/i.test(normalize(subject));
+  const targetScheme = isClassHour ? 'MON_CLASS_HOUR' : scheme;
+  return bells.find(
+    (bell) =>
+      bell.dayScheme === targetScheme && bell.lessonNumber === lessonNumber,
+  );
 }
 
 const monthNames = [

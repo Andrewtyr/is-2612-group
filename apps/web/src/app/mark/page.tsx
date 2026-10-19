@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
+import { lessonLabel } from '@/lib/lesson-label';
 
 type Lesson = {
   id: string;
@@ -169,7 +170,9 @@ export default function MarkPage() {
               <span>{lesson.endTime}</span>
             </div>
             <div className="lesson-content">
-              <div className="lesson-top">{lesson.lessonNumber} пара</div>
+              <div className="lesson-top">
+                {lessonLabel(lesson.lessonNumber, lesson.subject?.name)}
+              </div>
               <h3>{lesson.subject?.name ?? 'Занятие'}</h3>
             </div>
           </button>
@@ -178,7 +181,10 @@ export default function MarkPage() {
       {selected && (
         <section className="panel">
           <div className="section-title">
-            <h2>{selected.lessonNumber} пара · список группы</h2>
+            <h2>
+              {lessonLabel(selected.lessonNumber, selected.subject?.name)} ·
+              список группы
+            </h2>
           </div>
           <div className="row">
             <button
@@ -235,8 +241,8 @@ export default function MarkPage() {
                     )
                     .map((lesson) => (
                       <option key={lesson.id} value={lesson.id}>
-                        {lesson.lessonNumber} пара ·{' '}
-                        {lesson.subject?.name ?? 'Занятие'}
+                        {lessonLabel(lesson.lessonNumber, lesson.subject?.name)}{' '}
+                        · {lesson.subject?.name ?? 'Занятие'}
                       </option>
                     ))}
                 </select>

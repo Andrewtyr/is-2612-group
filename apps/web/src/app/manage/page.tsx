@@ -300,11 +300,15 @@ export default function ManagePage() {
   async function syncSchedule() {
     setMessage('Проверяем сайт академии…');
     try {
-      const result = await api<{ lessons: number }>('/schedule/sync', {
-        method: 'POST',
-      });
+      const result = await api<{ lessons: number; warning?: string | null }>(
+        '/schedule/sync',
+        {
+          method: 'POST',
+        },
+      );
       setMessage(
-        `Расписание проверено: ${result.lessons} занятий в ближайшие дни`,
+        result.warning ??
+          `Расписание проверено: ${result.lessons} занятий в ближайшие дни`,
       );
       await refresh();
     } catch (error) {
@@ -366,7 +370,14 @@ export default function ManagePage() {
                 : 'Ещё не обновлялось'}
             </p>
             {syncState?.lastError && (
-              <p className="error">Последняя ошибка: {syncState.lastError}</p>
+              <p className="error">
+                {syncState.lastError.startsWith(
+                  'Не удалось поставить по времени:',
+                )
+                  ? 'Замечание: '
+                  : 'Последняя ошибка: '}
+                {syncState.lastError}
+              </p>
             )}
             <button className="secondary" onClick={syncSchedule}>
               Обновить расписание сейчас

@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, ApiError } from '@/lib/api';
+import { lessonLabel } from '@/lib/lesson-label';
 
 type Lesson = {
   id: string;
@@ -221,7 +222,12 @@ export default function SchedulePage() {
                     </div>
                     <div className="lesson-content">
                       <div className="lesson-top">
-                        <span>{lesson.lessonNumber} пара</span>
+                        <span>
+                          {lessonLabel(
+                            lesson.lessonNumber,
+                            lesson.subject?.name,
+                          )}
+                        </span>
                         <em>{statusNames[lesson.status] ?? lesson.status}</em>
                       </div>
                       <h3>{lesson.subject?.name ?? 'Предмет не указан'}</h3>
@@ -246,10 +252,19 @@ export default function SchedulePage() {
               <h3>{title}</h3>
               <div className="bell-grid">
                 {bells
-                  .filter((bell) => bell.dayScheme === scheme)
+                  .filter(
+                    (bell) =>
+                      bell.dayScheme === scheme ||
+                      (scheme === 'MON' && bell.dayScheme === 'MON_CLASS_HOUR'),
+                  )
+                  .sort((a, b) => a.startTime.localeCompare(b.startTime))
                   .map((bell) => (
                     <div key={bell.id}>
-                      <strong>{bell.lessonNumber} пара</strong>
+                      <strong>
+                        {bell.dayScheme === 'MON_CLASS_HOUR'
+                          ? 'Классный час'
+                          : `${bell.lessonNumber} пара`}
+                      </strong>
                       <span>
                         {bell.startTime}–{bell.endTime}
                       </span>
