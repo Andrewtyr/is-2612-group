@@ -20,20 +20,46 @@ type Member = {
   preAbsent: boolean;
 };
 
+function today() {
+  return new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone: 'Asia/Novosibirsk',
+  }).format(new Date());
+}
+
 export default function MarkPage() {
+  const [role, setRole] = useState('');
+  const [date, setDate] = useState(today);
   const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [loadingLessons, setLoadingLessons] = useState(true);
   const [selected, setSelected] = useState<Lesson | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [marks, setMarks] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('');
   const [copyFromId, setCopyFromId] = useState('');
   const [copying, setCopying] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    api<Lesson[]>('/schedule/today')
-      .then(setLessons)
+    api<{ role: string }>('/auth/me')
+      .then((user) => setRole(user.role))
       .catch((error: Error) => setMessage(error.message));
   }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    api<Lesson[]>(`/schedule/date/${date}`, { signal: controller.signal })
+      .then(setLessons)
+      .catch((error: Error) => {
+        if (!controller.signal.aborted) setMessage(error.message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingLessons(false);
+      });
+    return () => controller.abort();
+  }, [date]);
 
   async function open(lesson: Lesson) {
     setMessage('');
@@ -55,24 +81,50 @@ export default function MarkPage() {
   }
 
   async function save() {
-    if (!selected) return;
+    if (!selected || saving) return;
     const entries = members
-      .filter((member) => marks[member.student.id])
+      .filter(
+        (member) =>
+          marks[member.student.id] &&
+          marks[member.student.id] !== member.attendance?.status,
+      )
       .map((member) => ({
         studentId: member.student.id,
         status: marks[member.student.id],
       }));
-    if (!entries.length) return setMessage('Сначала выберите отметки');
+    if (!entries.length)
+      return setMessage('Нет новых изменений для сохранения');
+    setSaving(true);
     try {
       await api(`/lessons/${selected.id}/attendance`, {
         method: 'POST',
-        body: JSON.stringify({ entries }),
+        body: JSON.stringify({
+          entries,
+          reason:
+            role === 'ADMIN' && date < today()
+              ? 'Исправление посещаемости за прошлый день'
+              : undefined,
+        }),
       });
       await open(selected);
-      setMessage('Отметки сохранены');
+      setMessage(`Сохранено изменений: ${entries.length}`);
     } catch (error) {
       setMessage((error as Error).message);
+    } finally {
+      setSaving(false);
     }
+  }
+
+  function selectDate(value: string) {
+    if (!value) return;
+    setDate(value);
+    setLessons([]);
+    setLoadingLessons(true);
+    setSelected(null);
+    setMembers([]);
+    setMarks({});
+    setCopyFromId('');
+    setMessage('');
   }
 
   async function copyFromLesson() {
@@ -142,9 +194,24 @@ export default function MarkPage() {
             ← Сегодня
           </Link>
           <h1>Отметить группу</h1>
-          <p className="muted">Выберите пару и отметьте исключения</p>
+          <p className="muted">Выберите пару и проверьте отметки группы</p>
         </div>
       </div>
+      {role === 'ADMIN' && (
+        <div className="mark-date-picker">
+          <label htmlFor="mark-date">Дата занятий</label>
+          <input
+            id="mark-date"
+            type="date"
+            value={date}
+            max={today()}
+            onChange={(event) => selectDate(event.target.value)}
+          />
+          <span className="muted">
+            Можно исправить отметки за любой прошедший день.
+          </span>
+        </div>
+      )}
       {message && (
         <div className="feedback-toast" role="status">
           <span>{message}</span>
@@ -178,6 +245,9 @@ export default function MarkPage() {
           </button>
         ))}
       </div>
+      {!loadingLessons && lessons.length === 0 && (
+        <p className="muted">На выбранную дату занятий нет.</p>
+      )}
       {selected && (
         <section className="panel">
           <div className="section-title">
@@ -327,8 +397,8 @@ export default function MarkPage() {
               </div>
             ))}
           </div>
-          <button className="primary" onClick={save}>
-            Сохранить отметки
+          <button className="primary" onClick={save} disabled={saving}>
+            {saving ? 'Сохраняю…' : 'Сохранить изменения'}
           </button>
         </section>
       )}

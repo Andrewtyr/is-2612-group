@@ -2,6 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { canEditAttendance } from '../src/modules/attendance/attendance-policy';
 
 describe('canEditAttendance', () => {
+  it('lets an admin correct attendance from a previous month', () => {
+    expect(
+      canEditAttendance(
+        'ADMIN',
+        '2026-09-01',
+        new Date('2026-10-19T12:00:00+07:00'),
+      ),
+    ).toBe(true);
+  });
+
   it('lets a curator correct an older lesson', () => {
     expect(
       canEditAttendance(

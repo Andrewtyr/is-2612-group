@@ -461,6 +461,26 @@ input::file-selector-button {
   border-color: var(--line);
   min-width: 0;
 }
+.mark-date-picker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding: 16px 20px;
+  margin: 0 0 20px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.mark-date-picker label {
+  font-weight: 700;
+}
+.mark-date-picker input {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+}
 .copy-attendance > * {
   min-width: 0;
 }
