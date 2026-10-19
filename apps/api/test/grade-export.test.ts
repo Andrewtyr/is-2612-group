@@ -38,6 +38,19 @@ describe('grade PDF export', () => {
       expect(text).toContain('Математика');
       expect(text).toContain('01.10.2026');
       expect(text).toContain('нб');
+      const dateItem = content.items.find(
+        (item) => 'str' in item && item.str === '01.10.2026',
+      );
+      const gradeItem = content.items.find(
+        (item) => 'str' in item && item.str === '5',
+      );
+      expect(
+        dateItem && 'transform' in dateItem ? dateItem.transform[5] : 0,
+      ).toBeGreaterThan(
+        gradeItem && 'transform' in gradeItem
+          ? gradeItem.transform[5]
+          : Number.POSITIVE_INFINITY,
+      );
     } finally {
       await task.destroy();
     }

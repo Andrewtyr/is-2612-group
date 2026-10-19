@@ -156,8 +156,8 @@ export default function AdminGradesPage() {
                             className={`admin-grade-chip ${grade.value === 'нб' ? 'absence' : ''}`}
                             title={formatDate(grade.date)}
                           >
-                            <strong>{grade.value}</strong>
                             <small>{formatDate(grade.date)}</small>
+                            <strong>{grade.value}</strong>
                           </span>
                         ))}
                       </div>

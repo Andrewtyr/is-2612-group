@@ -54,29 +54,47 @@ export async function renderStudentGradesPdf(
     document.fontSize(11).fillColor('#17324d').text('Оценок пока нет.');
   } else {
     for (const [subject, entries] of subjects) {
-      const values = entries
-        .map((entry) => `${shortDate(entry.date)}  ${entry.value}`)
-        .join('    •    ');
-      const contentHeight = Math.max(
-        document.fontSize(10).heightOfString(subject, { width: 180 }),
-        document.fontSize(10).heightOfString(values, { width: 310 }),
-      );
-      if (document.y + contentHeight + 22 > document.page.height - 44) {
-        document.addPage();
+      for (let offset = 0; offset < entries.length; offset += 32) {
+        const current = entries.slice(offset, offset + 32);
+        const subjectLabel = offset ? `${subject} (продолжение)` : subject;
+        const subjectHeight = document
+          .fontSize(10)
+          .heightOfString(subjectLabel, { width: 170 });
+        const contentHeight = Math.max(
+          subjectHeight,
+          Math.ceil(current.length / 4) * 39,
+        );
+        if (document.y + contentHeight + 22 > document.page.height - 44) {
+          document.addPage();
+        }
+        const y = document.y;
+        document
+          .rect(44, y - 6, document.page.width - 88, contentHeight + 17)
+          .fill('#f3f7fa');
+        document
+          .fontSize(10)
+          .fillColor('#17324d')
+          .text(subjectLabel, 52, y + 5, { width: 170 });
+        current.forEach((entry, index) => {
+          const x = 238 + (index % 4) * 77;
+          const cellY = y + Math.floor(index / 4) * 39;
+          document
+            .fontSize(8)
+            .fillColor('#607285')
+            .text(shortDate(entry.date), x, cellY, {
+              width: 72,
+              align: 'center',
+            });
+          document
+            .fontSize(13)
+            .fillColor(entry.value === 'нб' ? '#a05227' : '#17324d')
+            .text(entry.value, x, cellY + 13, {
+              width: 72,
+              align: 'center',
+            });
+        });
+        document.y = y + contentHeight + 17;
       }
-      const y = document.y;
-      document
-        .rect(44, y - 6, document.page.width - 88, contentHeight + 17)
-        .fill('#f3f7fa');
-      document
-        .fontSize(10)
-        .fillColor('#17324d')
-        .text(subject, 52, y, { width: 180 });
-      document
-        .fontSize(10)
-        .fillColor('#263e51')
-        .text(values, 238, y, { width: 310 });
-      document.y = y + contentHeight + 17;
     }
   }
   document.end();

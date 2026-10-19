@@ -679,9 +679,11 @@ tbody tr:hover {
 }
 .admin-grade-chip {
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  gap: 7px;
-  padding: 5px 8px;
+  gap: 2px;
+  min-width: 72px;
+  padding: 6px 8px;
   border-radius: 8px;
   background: #e9f5f0;
   color: #08715e;
@@ -694,6 +696,13 @@ tbody tr:hover {
 .admin-grade-chip small {
   font-size: 11px;
   opacity: 0.8;
+}
+.login-shell .brand {
+  width: min(100%, 420px);
+  margin: 0 auto 22px;
+}
+.login-shell .login-card {
+  margin: 0 auto;
 }
 @media (max-width: 600px) {
   .admin-grades-controls > select,
