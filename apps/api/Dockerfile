@@ -1,5 +1,7 @@
-FROM node:22-alpine
-RUN apk add --no-cache libgxps font-dejavu
+FROM node:22-bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgxps-utils fonts-dejavu-core openssl \
+    && rm -rf /var/lib/apt/lists/*
 RUN npm install -g pnpm@11.19.0
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./

@@ -5,6 +5,7 @@ export type ExportGrade = { subject: string; date: Date; value: string };
 
 function fontPath() {
   const candidates = [
+    '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
     '/usr/share/fonts/dejavu/DejaVuSans.ttf',
     '/usr/share/fonts/ttf-dejavu/DejaVuSans.ttf',
     'C:\\Windows\\Fonts\\arial.ttf',
