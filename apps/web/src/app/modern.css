@@ -695,6 +695,26 @@ tbody tr:hover {
   font-size: 11px;
   opacity: 0.8;
 }
+@media (max-width: 600px) {
+  .admin-grades-controls > select,
+  .admin-grades-controls > .grade-action {
+    width: 100%;
+    flex-basis: 100%;
+  }
+  .admin-grade-table {
+    min-width: 0;
+  }
+  .admin-grade-table th,
+  .admin-grade-table td {
+    padding: 12px 9px;
+  }
+  .admin-grade-table th:first-child {
+    width: 38%;
+  }
+  .admin-grade-chip {
+    white-space: normal;
+  }
+}
 .notification-card.unread {
   border-left: 3px solid var(--accent);
   background: #fcfefd;
