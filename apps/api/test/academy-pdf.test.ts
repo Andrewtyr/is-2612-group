@@ -12,6 +12,42 @@ const item = (str: string, x: number, y: number): PdfTextItem => ({
 });
 
 describe('extractGroupChanges', () => {
+  it('reads the 13:55 class-hour row separately from the empty third lesson', () => {
+    const items = [
+      item('№', 17, 511),
+      item('каб', 195, 505),
+      item('Ис-2612', 280, 505),
+      item('каб', 386, 505),
+      item('3', 17, 440),
+      item('13.55-', 17, 428),
+      item('14.40', 17, 416),
+      item('Классный час', 225, 428),
+      item('«Разговоры о важном»', 225, 417),
+      item('305', 381, 428),
+      item('4', 17, 404),
+      item('Физическая культура', 225, 405),
+      item('Жилкин Е.В.', 225, 393),
+      item('109', 381, 405),
+    ];
+    expect(extractGroupChanges(items, 'ИС-2612')).toEqual([
+      {
+        lessonNumber: 4,
+        subject: 'Классный час',
+        teacher: '«Разговоры о важном»',
+        room: '305',
+        status: 'CHANGED',
+        classHour: true,
+      },
+      {
+        lessonNumber: 4,
+        subject: 'Физическая культура',
+        teacher: 'Жилкин Е.В.',
+        room: '109',
+        status: 'CHANGED',
+      },
+    ]);
+  });
+
   it('keeps only the requested group column and its paired room column', () => {
     const items = [
       item('Ис-2611', 72, 438),

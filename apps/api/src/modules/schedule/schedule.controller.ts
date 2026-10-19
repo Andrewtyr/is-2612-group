@@ -87,7 +87,7 @@ export class ScheduleController {
     return this.prisma.lesson.findMany({
       where: { groupId: group.id, date: { gte: from, lt: to } },
       include: lessonInclude,
-      orderBy: [{ date: 'asc' }, { lessonNumber: 'asc' }, { subgroup: 'asc' }],
+      orderBy: [{ date: 'asc' }, { startTime: 'asc' }, { subgroup: 'asc' }],
     });
   }
 

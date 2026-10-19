@@ -235,7 +235,7 @@ export default function SchedulePage() {
                         {lesson.teacher?.name ?? 'Преподаватель не указан'} ·
                         кабинет {lesson.room ?? 'не указан'}
                         {lesson.building ? ` · корпус ${lesson.building}` : ''}
-                        {lesson.subgroup
+                        {lesson.subgroup && lesson.subgroup !== '__CLASS_HOUR__'
                           ? ` · подгруппа ${lesson.subgroup}`
                           : ''}
                       </p>

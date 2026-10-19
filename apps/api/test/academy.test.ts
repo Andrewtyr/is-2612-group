@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CLASS_HOUR_SUBGROUP,
+  normalizeMondayLessons,
   parseBellSchedule,
   parseChangePdfUrl,
   parseGroupId,
@@ -8,6 +10,33 @@ import {
 } from '../src/integrations/academy/academy-parser';
 
 describe('academy parser', () => {
+  it('keeps the class hour separate from the ordinary fourth Monday lesson', () => {
+    const base = {
+      teacher: '',
+      room: '',
+      building: '',
+      subgroup: '',
+    };
+    const lessons = normalizeMondayLessons([
+      {
+        ...base,
+        lessonNumber: 4,
+        subject: 'Классный час «Разговоры о важном»',
+      },
+      { ...base, lessonNumber: 5, subject: 'Физическая культура' },
+      { ...base, lessonNumber: 6, subject: 'ОБЗР' },
+      { ...base, lessonNumber: 7, subject: 'Математика' },
+    ]);
+    expect(
+      lessons.map(({ lessonNumber, subgroup }) => [lessonNumber, subgroup]),
+    ).toEqual([
+      [4, CLASS_HOUR_SUBGROUP],
+      [4, ''],
+      [5, ''],
+      [6, ''],
+    ]);
+  });
+
   it('finds the exact group and ignores similarly named groups', () => {
     const html = `<select id="gruppa">
       <option value="other">Ис-2611</option>

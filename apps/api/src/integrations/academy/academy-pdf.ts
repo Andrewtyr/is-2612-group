@@ -5,6 +5,7 @@ export type PdfChange = {
   teacher: string;
   room: string;
   status: 'CHANGED' | 'CANCELLED';
+  classHour?: true;
 };
 
 function clean(value: string) {
@@ -86,7 +87,7 @@ export function extractGroupChanges(
       )
       .sort((a, b) => b.x - a.x)[0];
     const subjectStart = previousCab ? previousCab.x + 15 : header.x - 70;
-    const rows = items
+    const numberedRows = items
       .filter(
         (item) =>
           /^\d{1,2}$/.test(clean(item.str)) &&
@@ -96,6 +97,23 @@ export function extractGroupChanges(
       )
       .map((item) => ({ lessonNumber: Number(item.str), y: item.y }))
       .sort((a, b) => b.y - a.y);
+    const classHourRows = items
+      .filter(
+        (item) =>
+          /^\d{1,2}[.:]\d{2}\s*-\s*(?:\d{1,2}[.:]\d{2})?$/.test(
+            clean(item.str),
+          ) &&
+          item.x < 40 &&
+          item.y < header.y - 10 &&
+          item.y > nextHeaderY + 5,
+      )
+      .flatMap((item) => {
+        const next = numberedRows.find((row) => row.y < item.y);
+        return next
+          ? [{ lessonNumber: next.lessonNumber, y: item.y, classHour: true }]
+          : [];
+      });
+    const rows = [...numberedRows, ...classHourRows].sort((a, b) => b.y - a.y);
     for (const row of rows) {
       const nextRowY =
         rows.find((candidate) => candidate.y < row.y)?.y ?? nextHeaderY;
@@ -135,6 +153,9 @@ export function extractGroupChanges(
               .join('/')
               .replace(/\/+/g, '/'),
         status: cancelled ? 'CANCELLED' : 'CHANGED',
+        ...('classHour' in row && row.classHour
+          ? { classHour: true as const }
+          : {}),
       });
     }
   }

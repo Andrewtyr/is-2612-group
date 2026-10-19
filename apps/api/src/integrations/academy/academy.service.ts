@@ -8,6 +8,8 @@ import {
 import { PrismaService } from '../../database/prisma.service';
 import { isoDate, primaryGroup, todayInNovosibirsk } from '../../common/group';
 import {
+  CLASS_HOUR_SUBGROUP,
+  normalizeMondayLessons,
   parseBellSchedule,
   parseChangePdfUrl,
   parseGroupId,
@@ -125,7 +127,11 @@ export class AcademyService implements OnModuleInit, OnModuleDestroy {
           calendar: dateText,
           ras: 'GRUP',
         });
-        const lessons = parseGroupLessons(html, group.name);
+        const sourceLessons = parseGroupLessons(html, group.name);
+        const lessons =
+          date.getUTCDay() === 1
+            ? normalizeMondayLessons(sourceLessons)
+            : sourceLessons;
         const pdfUrl = parseChangePdfUrl(changesHtml, dateText);
         const pdfChanges = pdfUrl ? await this.loadPdf(pdfUrl, group.name) : [];
         for (const lesson of lessons) {
@@ -137,7 +143,10 @@ export class AcademyService implements OnModuleInit, OnModuleDestroy {
               bells,
               pdfChanges.some(
                 (change) =>
-                  lesson.subgroup === '' &&
+                  (lesson.subgroup === '' ||
+                    lesson.subgroup === CLASS_HOUR_SUBGROUP) &&
+                  (lesson.subgroup === CLASS_HOUR_SUBGROUP) ===
+                    Boolean(change.classHour) &&
                   change.lessonNumber === lesson.lessonNumber,
               ),
             );
@@ -208,7 +217,7 @@ export class AcademyService implements OnModuleInit, OnModuleDestroy {
       groupId,
       date,
       lessonNumber: change.lessonNumber,
-      subgroup: '',
+      subgroup: change.classHour ? CLASS_HOUR_SUBGROUP : '',
     };
     const old = await this.prisma.lesson.findUnique({
       where: { groupId_date_lessonNumber_subgroup: key },

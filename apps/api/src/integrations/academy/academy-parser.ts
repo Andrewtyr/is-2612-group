@@ -15,6 +15,30 @@ export type AcademyBell = {
   endTime: string;
 };
 
+export const CLASS_HOUR_SUBGROUP = '__CLASS_HOUR__';
+
+export function normalizeMondayLessons(
+  lessons: AcademyLesson[],
+): AcademyLesson[] {
+  const isClassHour = (lesson: AcademyLesson) =>
+    /^классный\s+час/i.test(lesson.subject.trim());
+  const classHours = lessons.filter(isClassHour);
+  if (classHours.length !== 1) return lessons;
+  const classHourNumber = classHours[0].lessonNumber;
+  const numberedAfterClassHour =
+    !lessons.some(
+      (lesson) =>
+        !isClassHour(lesson) && lesson.lessonNumber === classHourNumber,
+    ) && lessons.some((lesson) => lesson.lessonNumber > classHourNumber);
+  return lessons.map((lesson) => {
+    if (isClassHour(lesson))
+      return { ...lesson, subgroup: CLASS_HOUR_SUBGROUP };
+    if (numberedAfterClassHour && lesson.lessonNumber > classHourNumber)
+      return { ...lesson, lessonNumber: lesson.lessonNumber - 1 };
+    return lesson;
+  });
+}
+
 function normalize(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
