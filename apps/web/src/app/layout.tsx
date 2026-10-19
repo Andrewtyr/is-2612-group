@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import './modern.css';
+import Navigation from '@/components/navigation';
 
 export const metadata: Metadata = {
   title: 'ИС-2612 — учебная группа',
@@ -11,7 +13,17 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ru">
-      <body>{children}</body>
+      <body>
+        <a className="skip-link" href="#main-content">
+          Перейти к содержимому
+        </a>
+        <div className="app-frame">
+          <Navigation />
+          <div className="app-content" id="main-content" tabIndex={-1}>
+            {children}
+          </div>
+        </div>
+      </body>
     </html>
   );
 }

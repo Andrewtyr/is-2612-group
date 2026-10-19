@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, useEffect, useState } from 'react';
-import Link from 'next/link';
+
 import { api } from '@/lib/api';
 
 type User = {
@@ -76,15 +76,10 @@ export default function Home() {
         body: JSON.stringify({ login, password }),
       });
       setUser(result.user);
+      window.dispatchEvent(new Event('session-changed'));
     } catch (reason) {
       setError((reason as Error).message);
     }
-  }
-
-  async function signOut() {
-    await api('/auth/logout', { method: 'POST' });
-    setUser(null);
-    setLessons([]);
   }
 
   async function changePassword(event: React.FormEvent) {
@@ -98,6 +93,7 @@ export default function Home() {
       setUser(user ? { ...user, mustChangePass: false } : null);
       setPassword('');
       setNewPassword('');
+      window.dispatchEvent(new Event('session-changed'));
     } catch (reason) {
       setError((reason as Error).message);
     }
@@ -242,15 +238,6 @@ export default function Home() {
 
   return (
     <main className="shell">
-      <header className="topbar">
-        <div className="brand">
-          <span className="brand-mark">✓</span>
-          <span>ИС–2612</span>
-        </div>
-        <button className="link-button" onClick={signOut}>
-          Выйти
-        </button>
-      </header>
       <div className="page-head">
         <div>
           <div className="eyebrow">ЛИЧНЫЙ КАБИНЕТ</div>
@@ -302,6 +289,7 @@ export default function Home() {
           <button
             key={value}
             className={tab === value ? 'active' : ''}
+            aria-pressed={tab === value}
             onClick={() => setTab(value)}
           >
             {label}
@@ -352,27 +340,6 @@ export default function Home() {
           </Fragment>
         ))}
       </div>
-      <nav className="bottom-nav">
-        <Link className="selected" href="/">
-          Сегодня
-        </Link>
-        <Link href="/schedule">Расписание</Link>
-        <Link href="/attendance">Посещаемость</Link>
-        <Link href="/grades">Оценки</Link>
-        <Link href="/notifications">Уведомления</Link>
-        {['HEAD', 'DEPUTY', 'CURATOR', 'ADMIN'].includes(user.role) && (
-          <Link href="/mark">Отметить</Link>
-        )}
-        {['HEAD', 'ADMIN'].includes(user.role) && (
-          <Link href="/reports">Отчёт</Link>
-        )}
-        {['CURATOR', 'ADMIN'].includes(user.role) && (
-          <Link href="/manage">Управление</Link>
-        )}
-        {user.role === 'ADMIN' && (
-          <Link href="/grades/import">Загрузить оценки</Link>
-        )}
-      </nav>
     </main>
   );
 }

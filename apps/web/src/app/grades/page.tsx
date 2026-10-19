@@ -42,8 +42,22 @@ export default function GradesPage() {
         <div className="empty">Оценки ещё не загружены.</div>
       )}
       {subjects.map((subject) => (
-        <section className="panel grade-subject" key={subject}>
-          <h2>{subject}</h2>
+        <details className="panel grade-subject" key={subject}>
+          <summary>
+            <span className="subject-icon" aria-hidden="true">
+              ▤
+            </span>
+            <span>
+              <strong>{subject}</strong>
+              <small>
+                Записей:{' '}
+                {grades.filter((grade) => grade.subject === subject).length}
+              </small>
+            </span>
+            <span className="subject-chevron" aria-hidden="true">
+              ⌄
+            </span>
+          </summary>
           <table className="grades-table">
             <thead>
               <tr>
@@ -72,7 +86,7 @@ export default function GradesPage() {
                 ))}
             </tbody>
           </table>
-        </section>
+        </details>
       ))}
     </main>
   );
