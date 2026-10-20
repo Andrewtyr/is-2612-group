@@ -197,6 +197,9 @@ export default function MarkPage() {
           <p className="muted">Выберите пару и проверьте отметки группы</p>
         </div>
       </div>
+      <Link className="secondary raport-link" href="/mark/raport">
+        Заполнить по рапортичке →
+      </Link>
       {role === 'ADMIN' && (
         <div className="mark-date-picker">
           <label htmlFor="mark-date">Дата занятий</label>

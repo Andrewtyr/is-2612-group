@@ -17,6 +17,7 @@ import { parseInput } from '../../common/input';
 import { isoDate, primaryGroup, todayInNovosibirsk } from '../../common/group';
 import { canEditAttendance } from './attendance-policy';
 import { buildWeeklyReport, weekMonday } from './weekly-report';
+import { buildRaportMarks } from './raport-marks';
 import type { AuthRequest } from '../../common/auth.guard';
 import { z } from 'zod';
 
@@ -40,9 +41,165 @@ const entriesSchema = z.object({
   reason: z.string().optional(),
 });
 
+const raportSchema = z.object({
+  date: z.iso.date(),
+  lessonIds: z.array(z.string()).min(1).max(12),
+  absences: z
+    .array(
+      z.object({
+        studentId: z.string(),
+        lessonIds: z.array(z.string()).min(1).max(12),
+        status: z.enum(['ABSENT', 'EXCUSED']),
+      }),
+    )
+    .max(100),
+});
+
 @Controller()
 export class AttendanceController {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+
+  @Roles('HEAD', 'DEPUTY', 'CURATOR', 'ADMIN')
+  @Post('attendance/raport')
+  async saveRaport(@Req() request: AuthRequest, @Body() body: unknown) {
+    const input = parseInput(raportSchema, body);
+    isoDate(input.date);
+    if (
+      !canEditAttendance(
+        request.user.role,
+        input.date,
+        new Date(),
+        Number(process.env.ATTENDANCE_EDIT_WINDOW_DAYS ?? 0),
+      )
+    ) {
+      throw new ForbiddenException('Время редактирования истекло');
+    }
+    if (new Set(input.lessonIds).size !== input.lessonIds.length)
+      throw new BadRequestException('Пары повторяются');
+    if (
+      new Set(input.absences.map((absence) => absence.studentId)).size !==
+      input.absences.length
+    )
+      throw new BadRequestException('Студент указан дважды');
+    const selectedLessons = new Set(input.lessonIds);
+    for (const absence of input.absences) {
+      if (
+        new Set(absence.lessonIds).size !== absence.lessonIds.length ||
+        absence.lessonIds.some((id) => !selectedLessons.has(id))
+      ) {
+        throw new BadRequestException(
+          'Укажите для отсутствующего выбранные пары',
+        );
+      }
+    }
+    const group = await primaryGroup(this.prisma);
+    if (request.user.role === 'HEAD' || request.user.role === 'DEPUTY') {
+      const editor = await this.prisma.groupMember.findUnique({
+        where: {
+          groupId_userId: { groupId: group.id, userId: request.user.id },
+        },
+      });
+      if (!editor) throw new ForbiddenException();
+    }
+    const lessons = await this.prisma.lesson.findMany({
+      where: {
+        id: { in: input.lessonIds },
+        groupId: group.id,
+        date: isoDate(input.date),
+      },
+      select: { id: true, status: true },
+    });
+    if (
+      lessons.length !== input.lessonIds.length ||
+      lessons.some((lesson) => lesson.status === 'CANCELLED')
+    ) {
+      throw new BadRequestException('Выберите действующие пары этой даты');
+    }
+    const members = await this.prisma.groupMember.findMany({
+      where: {
+        groupId: group.id,
+        user: { role: { in: ['STUDENT', 'HEAD', 'DEPUTY'] }, status: 'ACTIVE' },
+      },
+      select: { userId: true },
+    });
+    const studentIds = members.map((member) => member.userId);
+    if (
+      input.absences.some((absence) => !studentIds.includes(absence.studentId))
+    ) {
+      throw new BadRequestException('Указан ученик вне группы');
+    }
+    return this.prisma.$transaction(
+      async (tx) => {
+        const existing = await tx.attendance.findMany({
+          where: { lessonId: { in: input.lessonIds } },
+          select: { lessonId: true, studentId: true, status: true },
+        });
+        const changes = buildRaportMarks(
+          input.lessonIds,
+          studentIds,
+          input.absences,
+          existing,
+        );
+        const changedStudents = new Set<string>();
+        for (const change of changes) {
+          const attendance = await tx.attendance.upsert({
+            where: {
+              lessonId_studentId: {
+                lessonId: change.lessonId,
+                studentId: change.studentId,
+              },
+            },
+            create: {
+              lessonId: change.lessonId,
+              studentId: change.studentId,
+              status: change.status,
+              markedBy: request.user.id,
+            },
+            update: {
+              status: change.status,
+              markedBy: request.user.id,
+              markedAt: new Date(),
+              confirmedAt: null,
+            },
+          });
+          await tx.attendanceHistory.create({
+            data: {
+              attendanceId: attendance.id,
+              oldStatus: change.oldStatus,
+              newStatus: change.status,
+              changedBy: request.user.id,
+              reason: 'Отметка по рапортичке',
+            },
+          });
+          await tx.auditLog.create({
+            data: {
+              userId: request.user.id,
+              action: 'ATTENDANCE_RAPORT',
+              entityType: 'Attendance',
+              entityId: attendance.id,
+              oldData: change.oldStatus
+                ? { status: change.oldStatus }
+                : undefined,
+              newData: { status: change.status },
+            },
+          });
+          changedStudents.add(change.studentId);
+        }
+        for (const studentId of changedStudents) {
+          await tx.notification.create({
+            data: {
+              userId: studentId,
+              type: 'ATTENDANCE_CHANGED',
+              title: 'Посещаемость обновлена',
+              body: `${input.date}: отметки по рапортичке`,
+            },
+          });
+        }
+        return { updated: changes.length, students: changedStudents.size };
+      },
+      { timeout: 120_000 },
+    );
+  }
 
   @Roles('HEAD', 'ADMIN')
   @Get('attendance/reports/weekly')
@@ -103,7 +260,10 @@ export class AttendanceController {
     const members = await this.prisma.groupMember.findMany({
       where: {
         groupId: group.id,
-        user: { role: { in: ['STUDENT', 'HEAD', 'DEPUTY'] } },
+        user: {
+          role: { in: ['STUDENT', 'HEAD', 'DEPUTY'] },
+          status: 'ACTIVE',
+        },
       },
       include: {
         user: { select: { id: true, firstName: true, lastName: true } },

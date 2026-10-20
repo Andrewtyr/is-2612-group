@@ -481,6 +481,82 @@ input::file-selector-button {
   border: 1px solid var(--line);
   border-radius: 11px;
 }
+.raport-link {
+  display: inline-flex;
+  margin-bottom: 20px;
+}
+.raport-date,
+.raport-person,
+.raport-confirm {
+  display: block;
+  margin-bottom: 18px;
+}
+.raport-date input {
+  display: block;
+  margin-top: 8px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+}
+.raport-lessons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0;
+}
+.raport-lesson {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #f6f9fa;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+}
+.raport-person {
+  padding: 16px;
+  background: #f6f9fa;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.raport-person select {
+  min-height: 44px;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+}
+.raport-summary {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0;
+}
+.raport-summary > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  padding: 12px;
+  background: #f6f9fa;
+  border-radius: 11px;
+}
+.raport-summary strong {
+  min-width: 180px;
+}
+.raport-absent-names {
+  flex-basis: 100%;
+  color: #405d6a;
+}
+.raport-old-changes {
+  margin: 16px 0;
+}
+.raport-old-changes ul {
+  max-height: 240px;
+  overflow: auto;
+  padding-left: 22px;
+}
+.raport-confirm input {
+  margin-right: 8px;
+}
 .copy-attendance > * {
   min-width: 0;
 }
