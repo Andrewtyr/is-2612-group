@@ -85,6 +85,7 @@ describe('academy synchronization', () => {
             saved.get(keyOf(args.where.groupId_date_lessonNumber_subgroup)) ??
             null,
         ),
+        findMany: vi.fn(async () => []),
       },
       $transaction: vi.fn(
         async (callback: (client: typeof tx) => Promise<void>) => callback(tx),
@@ -203,7 +204,10 @@ describe('academy synchronization', () => {
         }),
       },
       bellSchedule: { upsert: vi.fn(async () => undefined) },
-      lesson: { findUnique: vi.fn(async () => null) },
+      lesson: {
+        findUnique: vi.fn(async () => null),
+        findMany: vi.fn(async () => []),
+      },
       $transaction: vi.fn(
         async (callback: (client: typeof tx) => Promise<void>) => callback(tx),
       ),

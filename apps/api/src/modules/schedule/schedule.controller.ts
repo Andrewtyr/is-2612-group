@@ -85,7 +85,11 @@ export class ScheduleController {
   private async list(from: Date, to: Date) {
     const group = await primaryGroup(this.prisma);
     return this.prisma.lesson.findMany({
-      where: { groupId: group.id, date: { gte: from, lt: to } },
+      where: {
+        groupId: group.id,
+        date: { gte: from, lt: to },
+        status: { not: 'CANCELLED' },
+      },
       include: lessonInclude,
       orderBy: [{ date: 'asc' }, { startTime: 'asc' }, { subgroup: 'asc' }],
     });

@@ -42,12 +42,6 @@ const schemeNames: Record<string, string> = {
   TUE_FRI: 'Вторник — пятница',
   SAT: 'Суббота',
 };
-const statusNames: Record<string, string> = {
-  PLANNED: 'По расписанию',
-  CHANGED: 'Изменена',
-  CANCELLED: 'Отменена',
-  ADDED: 'Добавлена',
-};
 
 function localDate() {
   return new Intl.DateTimeFormat('sv-SE', {
@@ -228,7 +222,6 @@ export default function SchedulePage() {
                             lesson.subject?.name,
                           )}
                         </span>
-                        <em>{statusNames[lesson.status] ?? lesson.status}</em>
                       </div>
                       <h3>{lesson.subject?.name ?? 'Предмет не указан'}</h3>
                       <p>

@@ -328,11 +328,6 @@ export default function Home() {
                   <span>
                     {lessonLabel(lesson.lessonNumber, lesson.subject?.name)}
                   </span>
-                  {lesson.status !== 'PLANNED' && (
-                    <em>
-                      {lesson.status === 'CANCELLED' ? 'Отменена' : 'Изменена'}
-                    </em>
-                  )}
                 </div>
                 <h3>{lesson.subject?.name ?? 'Предмет не указан'}</h3>
                 <p>

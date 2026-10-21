@@ -25,6 +25,7 @@ import {
 } from './academy-pdf';
 import type { Prisma } from '@prisma/client';
 import { notifyGroup } from '../../common/group-notifications';
+import { missingOfficialLessons } from './academy-reconcile';
 
 const scheduleOrigin = 'https://schedule.altag.ru';
 const bellsUrl = 'https://altag.ru/student/schedule/call_schedule';
@@ -128,6 +129,14 @@ export class AcademyService implements OnModuleInit, OnModuleDestroy {
           ras: 'GRUP',
         });
         const sourceLessons = parseGroupLessons(html, group.name);
+        // An unexpected blank/error page must never cancel a whole day.
+        const sourceConfirmed =
+          sourceLessons.length > 0 || html.includes('table-body');
+        if (!sourceConfirmed) {
+          missingTimes.add(
+            `${dateText}: академия вернула пустую страницу без таблицы`,
+          );
+        }
         const lessons =
           date.getUTCDay() === 1
             ? normalizeMondayLessons(sourceLessons)
@@ -164,9 +173,12 @@ export class AcademyService implements OnModuleInit, OnModuleDestroy {
             missingTimes.add(error.message);
           }
         }
+        if (sourceConfirmed) {
+          await this.cancelMissingLessons(group.id, date, lessons, pdfChanges);
+        }
       }
       const warning = missingTimes.size
-        ? `Не удалось поставить по времени: ${[...missingTimes].join('; ')}. Остальные занятия обновлены.`
+        ? `Часть расписания не удалось синхронизировать: ${[...missingTimes].join('; ')}. Остальные занятия обновлены.`
         : null;
       await this.prisma.syncState.update({
         where: { id: stateId },
@@ -190,6 +202,68 @@ export class AcademyService implements OnModuleInit, OnModuleDestroy {
       throw error;
     } finally {
       this.syncing = false;
+    }
+  }
+
+  /** Cancel only automatic lessons absent from a verified new daily snapshot.
+   * Manual edits and cancellations remain in the database and change history.
+   */
+  private async cancelMissingLessons(
+    groupId: string,
+    date: Date,
+    lessons: AcademyLesson[],
+    pdfChanges: PdfChange[],
+  ) {
+    const saved = await this.prisma.lesson.findMany({
+      where: {
+        groupId,
+        date,
+        source: { in: ['academy', 'official-pdf'] },
+        status: { not: 'CANCELLED' },
+      },
+      include: { subject: true },
+    });
+    const missing = missingOfficialLessons(saved, lessons, pdfChanges);
+    for (const lesson of missing) {
+      const before = {
+        status: lesson.status,
+        source: lesson.source,
+        subject: lesson.subject?.name ?? null,
+      };
+      const after = { ...before, status: 'CANCELLED' };
+      await this.prisma.$transaction(async (tx) => {
+        // Guard against a concurrent manual edit or repeated sync.
+        const updated = await tx.lesson.updateMany({
+          where: {
+            id: lesson.id,
+            groupId,
+            date,
+            source: { in: ['academy', 'official-pdf'] },
+            status: { not: 'CANCELLED' },
+          },
+          data: { status: 'CANCELLED' },
+        });
+        if (updated.count === 0) return;
+        await tx.scheduleChange.create({
+          data: {
+            lessonId: lesson.id,
+            type: 'OFFICIAL_CANCEL',
+            oldValue: before,
+            newValue: after,
+            source: scheduleOrigin,
+            reason: 'Пара исчезла из актуального расписания академии',
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            action: 'SCHEDULE_OFFICIAL_CANCEL',
+            entityType: 'Lesson',
+            entityId: lesson.id,
+            oldData: before,
+            newData: after,
+          },
+        });
+      });
     }
   }
 
@@ -414,6 +488,7 @@ export class AcademyService implements OnModuleInit, OnModuleDestroy {
     };
     if (
       oldSnapshot &&
+      old?.status !== 'CANCELLED' &&
       old?.source !== 'official-pdf' &&
       JSON.stringify(oldSnapshot) === JSON.stringify(nextSnapshot)
     )
