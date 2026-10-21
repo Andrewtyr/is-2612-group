@@ -21,6 +21,8 @@ import { parseInput } from '../../common/input';
 import type { AuthRequest } from '../../common/auth.guard';
 import { parseGradePdf } from './grade-pdf';
 import { parseGradeXps } from './grade-xps';
+import { parseGradeExcel } from './grade-excel';
+import { normalizeGradeSubject, planGradeImport } from './grade-import';
 import { renderStudentGradesPdf } from './grade-export';
 import { z } from 'zod';
 
@@ -185,17 +187,41 @@ export class GradesController {
     }
     const data = Buffer.concat(chunks);
     const isPdf = data.subarray(0, 5).equals(Buffer.from('%PDF-'));
-    const isXps = data
+    const isXls = data
+      .subarray(0, 8)
+      .equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]));
+    const isZip = data
       .subarray(0, 4)
       .equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
-    if (!isPdf && !isXps)
-      throw new BadRequestException('Нужен файл PDF или XPS');
+    const mime = String(request.headers['content-type'] ?? '')
+      .split(';')[0]
+      .toLowerCase();
+    const isXlsx =
+      isZip &&
+      mime ===
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    const isXps = isZip && !isXlsx;
+    if (!isPdf && !isXls && !isXlsx && !isXps) {
+      throw new BadRequestException('Нужен файл PDF, XPS, XLS или XLSX');
+    }
+    const format = isPdf ? 'pdf' : isXls || isXlsx ? 'excel' : 'xps';
     let pages;
     try {
       pages = isPdf
         ? await parseGradePdf(new Uint8Array(data), academicYearStart)
-        : await parseGradeXps(data, academicYearStart);
-    } catch {
+        : format === 'excel'
+          ? parseGradeExcel(data, academicYearStart)
+          : await parseGradeXps(data, academicYearStart);
+    } catch (error) {
+      if (
+        format === 'excel' &&
+        error instanceof Error &&
+        /Не найдены|Не удалось|Неверная дата|Слишком много|В Excel|не похож|слишком много/u.test(
+          error.message,
+        )
+      ) {
+        throw new BadRequestException(error.message);
+      }
       throw new BadRequestException('Не удалось прочитать журнал с оценками');
     }
     if (!pages.length)
@@ -209,7 +235,7 @@ export class GradesController {
     return {
       checksum: createHash('sha256').update(data).digest('hex'),
       academicYearStart,
-      format: isPdf ? 'pdf' : 'xps',
+      format,
       pages: pages.map((page) => ({
         ...page,
         rows: page.rows.map((row) => ({
@@ -224,29 +250,78 @@ export class GradesController {
   @Post('import')
   async importGrades(@Req() request: AuthRequest, @Body() body: unknown) {
     const input = parseInput(importSchema, body);
-    const previous = await this.prisma.gradeImport.findUnique({
+    const existingBatch = await this.prisma.gradeImport.findUnique({
       where: { checksum: input.checksum },
     });
-    if (previous) return { imported: 0, alreadyImported: true };
-    const group = await primaryGroup(this.prisma);
-    const ids = [...new Set(input.entries.map((entry) => entry.studentId))];
-    const members = await this.prisma.groupMember.findMany({
-      where: {
-        groupId: group.id,
-        userId: { in: ids },
-        user: { role: { in: ['STUDENT', 'HEAD', 'DEPUTY'] }, status: 'ACTIVE' },
-      },
-    });
-    if (members.length !== ids.length)
-      throw new BadRequestException('В списке есть ученик вне группы');
-    const keys = input.entries.map(
-      (entry) =>
-        `${entry.studentId}|${entry.subject}|${entry.date}|${entry.columnIndex}`,
+    if (existingBatch)
+      return { imported: 0, updated: 0, unchanged: 0, alreadyImported: true };
+
+    const entries = input.entries.map((entry) => ({
+      ...entry,
+      subject: normalizeGradeSubject(entry.subject),
+      value: entry.value.toLocaleLowerCase('ru-RU'),
+    }));
+    const sourceKeys = entries.map((entry) =>
+      JSON.stringify([
+        entry.studentId,
+        entry.subject.toLocaleLowerCase('ru-RU'),
+        entry.date,
+        entry.columnIndex,
+      ]),
     );
-    if (new Set(keys).size !== keys.length)
+    if (new Set(sourceKeys).size !== sourceKeys.length)
       throw new BadRequestException('В файле есть повторяющиеся оценки');
+    const group = await primaryGroup(this.prisma);
+    const studentIds = [...new Set(entries.map((entry) => entry.studentId))];
+    const dates = entries.map((entry) => entry.date).sort();
+    const academicFrom = String(input.academicYearStart) + '-08-01';
+    const academicTo = String(input.academicYearStart + 1) + '-07-31';
+    if (dates[0] < academicFrom || dates[dates.length - 1] > academicTo) {
+      throw new BadRequestException(
+        'Даты оценок выходят за пределы учебного года',
+      );
+    }
+
     return this.prisma.$transaction(
       async (tx) => {
+        const repeat = await tx.gradeImport.findUnique({
+          where: { checksum: input.checksum },
+        });
+        if (repeat)
+          return {
+            imported: 0,
+            updated: 0,
+            unchanged: 0,
+            alreadyImported: true,
+          };
+        const members = await tx.groupMember.findMany({
+          where: {
+            groupId: group.id,
+            userId: { in: studentIds },
+            user: {
+              role: { in: ['STUDENT', 'HEAD', 'DEPUTY'] },
+              status: 'ACTIVE',
+            },
+          },
+        });
+        if (members.length !== studentIds.length)
+          throw new BadRequestException('В списке есть ученик вне группы');
+        const stored = await tx.gradeEntry.findMany({
+          where: {
+            studentId: { in: studentIds },
+            date: { gte: isoDate(academicFrom), lte: isoDate(academicTo) },
+          },
+          orderBy: [{ date: 'asc' }, { columnIndex: 'asc' }],
+          select: {
+            id: true,
+            studentId: true,
+            subject: true,
+            date: true,
+            columnIndex: true,
+            value: true,
+          },
+        });
+        const plan = planGradeImport(entries, stored);
         const batch = await tx.gradeImport.create({
           data: {
             checksum: input.checksum,
@@ -255,30 +330,31 @@ export class GradesController {
             createdBy: request.user.id,
           },
         });
-        for (const entry of input.entries) {
-          const date = isoDate(entry.date);
-          await tx.gradeEntry.upsert({
-            where: {
-              studentId_subject_date_columnIndex: {
-                studentId: entry.studentId,
-                subject: entry.subject,
-                date,
-                columnIndex: entry.columnIndex,
+        let imported = 0;
+        let updated = 0;
+        let unchanged = 0;
+        for (const operation of plan) {
+          if (operation.type === 'unchanged') {
+            unchanged++;
+          } else if (operation.type === 'update') {
+            await tx.gradeEntry.update({
+              where: { id: operation.id },
+              data: { value: operation.value, importId: batch.id },
+            });
+            updated++;
+          } else {
+            await tx.gradeEntry.create({
+              data: {
+                studentId: operation.entry.studentId,
+                subject: operation.subject,
+                date: isoDate(operation.entry.date),
+                columnIndex: operation.columnIndex,
+                value: operation.entry.value,
+                importId: batch.id,
               },
-            },
-            create: {
-              studentId: entry.studentId,
-              subject: entry.subject,
-              date,
-              columnIndex: entry.columnIndex,
-              value: entry.value.toLocaleLowerCase('ru-RU'),
-              importId: batch.id,
-            },
-            update: {
-              value: entry.value.toLocaleLowerCase('ru-RU'),
-              importId: batch.id,
-            },
-          });
+            });
+            imported++;
+          }
         }
         await tx.auditLog.create({
           data: {
@@ -286,10 +362,10 @@ export class GradesController {
             action: 'GRADES_IMPORT',
             entityType: 'GradeImport',
             entityId: batch.id,
-            newData: { count: input.entries.length, checksum: input.checksum },
+            newData: { imported, updated, unchanged, checksum: input.checksum },
           },
         });
-        return { imported: input.entries.length, alreadyImported: false };
+        return { imported, updated, unchanged, alreadyImported: false };
       },
       { timeout: 120_000 },
     );

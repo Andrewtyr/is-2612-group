@@ -21,7 +21,7 @@ type GradePage = {
 type Preview = {
   checksum: string;
   academicYearStart: number;
-  format: 'pdf' | 'xps';
+  format: 'pdf' | 'xps' | 'excel';
   pages: GradePage[];
 };
 
@@ -45,6 +45,7 @@ export default function GradeImportPage() {
   const [dates, setDates] = useState<Record<string, string>>({});
   const [grades, setGrades] = useState<Record<string, string>>({});
   const [allowUnmatched, setAllowUnmatched] = useState(false);
+  const [openSubject, setOpenSubject] = useState(0);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -68,7 +69,11 @@ export default function GradeImportPage() {
         headers: {
           'Content-Type': file.name.toLowerCase().endsWith('.xps')
             ? 'application/vnd.ms-xpsdocument'
-            : 'application/pdf',
+            : file.name.toLowerCase().endsWith('.xlsx')
+              ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+              : file.name.toLowerCase().endsWith('.xls')
+                ? 'application/vnd.ms-excel'
+                : 'application/pdf',
         },
         body: file,
       });
@@ -79,6 +84,7 @@ export default function GradeImportPage() {
         );
       const result = data as Preview;
       setPreview(result);
+      setOpenSubject(0);
       setSubjects(
         Object.fromEntries(
           result.pages.map((page, pageIndex) => [pageIndex, page.subject]),
@@ -196,22 +202,24 @@ export default function GradeImportPage() {
     setBusy(true);
     setError('');
     try {
-      const result = await api<{ imported: number; alreadyImported: boolean }>(
-        '/grades/import',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            checksum: preview.checksum,
-            fileName: file.name,
-            academicYearStart: preview.academicYearStart,
-            entries,
-          }),
-        },
-      );
+      const result = await api<{
+        imported: number;
+        updated: number;
+        unchanged: number;
+        alreadyImported: boolean;
+      }>('/grades/import', {
+        method: 'POST',
+        body: JSON.stringify({
+          checksum: preview.checksum,
+          fileName: file.name,
+          academicYearStart: preview.academicYearStart,
+          entries,
+        }),
+      });
       setMessage(
         result.alreadyImported
           ? 'Этот файл уже загружен.'
-          : `Сохранено отметок: ${result.imported}.`,
+          : `Новых: ${result.imported}, обновлено: ${result.updated}, без изменений: ${result.unchanged}.`,
       );
       setPreview(null);
     } catch (reason) {
@@ -238,10 +246,10 @@ export default function GradeImportPage() {
       {message && <p className="notice">{message}</p>}
       <div className="panel grade-import-controls">
         <label>
-          PDF или XPS журнала
+          PDF, XPS или Excel (.xls, .xlsx)
           <input
             type="file"
-            accept="application/pdf,application/vnd.ms-xpsdocument,.pdf,.xps"
+            accept=".pdf,.xps,.xls,.xlsx,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             onChange={(event) => {
               setFile(event.target.files?.[0] ?? null);
               setPreview(null);
@@ -270,11 +278,11 @@ export default function GradeImportPage() {
             . Строк без сопоставления: {unmatched}. «нб» показывается отдельно
             от числовых оценок.
           </p>
-          {preview.format === 'xps' && (
+          {preview.format !== 'pdf' && (
             <p className="muted">
-              Проверьте распознанные ячейки по исходной странице. Можно
-              исправить предмет, даты и каждую оценку. Осталось проверить:{' '}
-              {unresolved}; дат без распознавания: {invalidDates}.
+              Проверьте таблицу и сопоставление студентов. Можно исправить
+              предметы и оценки. Неясных отметок: {unresolved}; некорректных
+              дат: {invalidDates}.
             </p>
           )}
           {preview.pages.map((page, pageIndex) => (
@@ -282,7 +290,7 @@ export default function GradeImportPage() {
               className="panel grade-subject"
               key={`${page.subject}:${pageIndex}`}
             >
-              {preview.format === 'xps' ? (
+              {preview.format !== 'pdf' ? (
                 <label className="grade-subject-name">
                   Предмет
                   <input
@@ -300,126 +308,143 @@ export default function GradeImportPage() {
               ) : (
                 <h2>{page.subject}</h2>
               )}
-              {page.previewImage && (
-                <details className="grade-source-preview">
-                  <summary>Сверить с оригинальной страницей</summary>
-                  {/* The image comes from the uploaded XPS and is held only in this preview. */}
-                  <img src={page.previewImage} alt="Страница журнала XPS" />
-                </details>
+              {preview.format === 'excel' && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOpenSubject(openSubject === pageIndex ? -1 : pageIndex)
+                  }
+                >
+                  {openSubject === pageIndex
+                    ? 'Свернуть таблицу'
+                    : 'Показать оценки и проверить'}
+                </button>
               )}
-              <div className="report-scroll">
-                <table className="report-table grade-preview-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Студент из журнала</th>
-                      <th scope="col">Аккаунт группы</th>
-                      {page.dates.map((date) => (
-                        <th scope="col" key={date.columnIndex}>
-                          {preview.format === 'xps' ? (
-                            <input
-                              type="date"
-                              aria-label={`Дата колонки ${date.columnIndex + 1}`}
-                              value={
-                                dates[`${pageIndex}:${date.columnIndex}`] ?? ''
-                              }
-                              onChange={(event) =>
-                                setDates({
-                                  ...dates,
-                                  [`${pageIndex}:${date.columnIndex}`]:
-                                    event.target.value,
-                                })
-                              }
-                            />
-                          ) : (
-                            formatDate(date.date)
-                          )}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {page.rows.map((row, rowIndex) => (
-                      <tr key={`${row.name}:${rowIndex}`}>
-                        <th scope="row">{row.name}</th>
-                        <td>
-                          <select
-                            aria-label={`Аккаунт для ${row.name}`}
-                            value={
-                              assignments[`${pageIndex}:${rowIndex}`] ?? ''
-                            }
-                            onChange={(event) =>
-                              setAssignments({
-                                ...assignments,
-                                [`${pageIndex}:${rowIndex}`]:
-                                  event.target.value,
-                              })
-                            }
-                          >
-                            <option value="">Не импортировать</option>
-                            {students.map((student) => (
-                              <option key={student.id} value={student.id}>
-                                {student.name}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        {page.dates.map((date) => (
-                          <td key={date.columnIndex}>
-                            {preview.format === 'xps' ? (
+              {(preview.format !== 'excel' || openSubject === pageIndex) && (
+                <>
+                  {page.previewImage && (
+                    <details className="grade-source-preview">
+                      <summary>Сверить с оригинальной страницей</summary>
+                      {/* The image comes from the uploaded XPS and is held only in this preview. */}
+                      <img src={page.previewImage} alt="Страница журнала XPS" />
+                    </details>
+                  )}
+                  <div className="report-scroll">
+                    <table className="report-table grade-preview-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">Студент из журнала</th>
+                          <th scope="col">Аккаунт группы</th>
+                          {page.dates.map((date) => (
+                            <th scope="col" key={date.columnIndex}>
+                              {preview.format === 'xps' ? (
+                                <input
+                                  type="date"
+                                  aria-label={`Дата колонки ${date.columnIndex + 1}`}
+                                  value={
+                                    dates[`${pageIndex}:${date.columnIndex}`] ??
+                                    ''
+                                  }
+                                  onChange={(event) =>
+                                    setDates({
+                                      ...dates,
+                                      [`${pageIndex}:${date.columnIndex}`]:
+                                        event.target.value,
+                                    })
+                                  }
+                                />
+                              ) : (
+                                formatDate(date.date)
+                              )}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {page.rows.map((row, rowIndex) => (
+                          <tr key={`${row.name}:${rowIndex}`}>
+                            <th scope="row">{row.name}</th>
+                            <td>
                               <select
-                                aria-label={`Оценка: ${row.name}, колонка ${date.columnIndex + 1}`}
-                                className={
-                                  grades[
-                                    gradeKey(
-                                      pageIndex,
-                                      rowIndex,
-                                      date.columnIndex,
-                                    )
-                                  ] === '?'
-                                    ? 'grade-needs-review'
-                                    : ''
-                                }
+                                aria-label={`Аккаунт для ${row.name}`}
                                 value={
-                                  grades[
-                                    gradeKey(
-                                      pageIndex,
-                                      rowIndex,
-                                      date.columnIndex,
-                                    )
-                                  ] ?? ''
+                                  assignments[`${pageIndex}:${rowIndex}`] ?? ''
                                 }
                                 onChange={(event) =>
-                                  setGrades({
-                                    ...grades,
-                                    [gradeKey(
-                                      pageIndex,
-                                      rowIndex,
-                                      date.columnIndex,
-                                    )]: event.target.value,
+                                  setAssignments({
+                                    ...assignments,
+                                    [`${pageIndex}:${rowIndex}`]:
+                                      event.target.value,
                                   })
                                 }
                               >
-                                <option value="">—</option>
-                                <option value="?">Проверить</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                                <option value="4">4</option>
-                                <option value="5">5</option>
-                                <option value="нб">нб</option>
+                                <option value="">Не импортировать</option>
+                                {students.map((student) => (
+                                  <option key={student.id} value={student.id}>
+                                    {student.name}
+                                  </option>
+                                ))}
                               </select>
-                            ) : (
-                              (row.grades.find(
-                                (grade) =>
-                                  grade.columnIndex === date.columnIndex,
-                              )?.value ?? '—')
-                            )}
-                          </td>
+                            </td>
+                            {page.dates.map((date) => (
+                              <td key={date.columnIndex}>
+                                {preview.format !== 'pdf' ? (
+                                  <select
+                                    aria-label={`Оценка: ${row.name}, колонка ${date.columnIndex + 1}`}
+                                    className={
+                                      grades[
+                                        gradeKey(
+                                          pageIndex,
+                                          rowIndex,
+                                          date.columnIndex,
+                                        )
+                                      ] === '?'
+                                        ? 'grade-needs-review'
+                                        : ''
+                                    }
+                                    value={
+                                      grades[
+                                        gradeKey(
+                                          pageIndex,
+                                          rowIndex,
+                                          date.columnIndex,
+                                        )
+                                      ] ?? ''
+                                    }
+                                    onChange={(event) =>
+                                      setGrades({
+                                        ...grades,
+                                        [gradeKey(
+                                          pageIndex,
+                                          rowIndex,
+                                          date.columnIndex,
+                                        )]: event.target.value,
+                                      })
+                                    }
+                                  >
+                                    <option value="">—</option>
+                                    <option value="?">Проверить</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                    <option value="5">5</option>
+                                    <option value="нб">нб</option>
+                                  </select>
+                                ) : (
+                                  (row.grades.find(
+                                    (grade) =>
+                                      grade.columnIndex === date.columnIndex,
+                                  )?.value ?? '—')
+                                )}
+                              </td>
+                            ))}
+                          </tr>
                         ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </section>
           ))}
           {unmatched > 0 && (

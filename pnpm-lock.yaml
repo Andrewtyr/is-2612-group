@@ -17,6 +17,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@e965/xlsx':
+        specifier: 0.20.3
+        version: 0.20.3
       '@nestjs/common':
         specifier: ^11.1.0
         version: 11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0)
@@ -150,6 +153,11 @@ packages:
 
   '@borewit/text-codec@0.2.2':
     resolution: {integrity: sha512-DDaRehssg1aNrH4+2hnj1B7vnUGEjU6OIlyRdkMd0aUdIUvKXrJfXsy8LVtXAy7DRvYVluWbMspsRhz2lcW0mQ==}
+
+  '@e965/xlsx@0.20.3':
+    resolution: {integrity: sha512-703RN/3OdsRD5mtse2HBX7Um7xwaP9tlswEG6svOtjqokXoX7rJdQj7DyabD2I+xk22RgaIIU+R6BHgkpZGB/w==}
+    engines: {node: '>=0.8'}
+    hasBin: true
 
   '@emnapi/runtime@1.11.3':
     resolution: {integrity: sha512-Xz4Tpyki7XyrpbUK1jR1AhdAdaXyhhY4lZ3neLodmhpuWfy2PAQN5B46sAiU4liOXGLkHypn/qU+jvfWSCYYLA==}
@@ -2345,6 +2353,8 @@ packages:
 snapshots:
 
   '@borewit/text-codec@0.2.2': {}
+
+  '@e965/xlsx@0.20.3': {}
 
   '@emnapi/runtime@1.11.3':
     dependencies:
