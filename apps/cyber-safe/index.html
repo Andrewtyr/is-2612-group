@@ -66,8 +66,8 @@
           <p class="lead">Пять уровней защиты. Секретные шифры. Неожиданные алгоритмы. Каждый запуск — новое испытание. Сможешь открыть сейф до истечения времени?</p>
           <div class="section-kicker">01 / ВЫБЕРИ СЛОЖНОСТЬ</div>
           <div class="mode-grid">
-            <button type="button" id="guestMode" class="mode-card selected" data-mode="guest" aria-pressed="true"><span class="mode-head"><span class="mode-chip">ГОСТЬ</span><span class="mode-signal">●</span></span><span class="mode-time" id="guestTime">10:00</span><span class="mode-desc">5 уровней · Для всех</span></button>
-            <button type="button" id="proMode" class="mode-card" data-mode="pro" aria-pressed="false"><span class="mode-head"><span class="mode-chip">PRO</span><span class="mode-signal">⌘</span></span><span class="mode-time" id="proTime">12:00</span><span class="mode-desc">5 уровней · Для смелых</span></button>
+            <button type="button" id="guestMode" class="mode-card selected" data-mode="guest" aria-pressed="true"><span class="mode-head"><span class="mode-chip">ГОСТЬ</span><span class="mode-signal">●</span></span><span class="mode-time" id="guestTime">12:00</span><span class="mode-desc">5 уровней · Для всех</span></button>
+            <button type="button" id="proMode" class="mode-card" data-mode="pro" aria-pressed="false"><span class="mode-head"><span class="mode-chip">PRO</span><span class="mode-signal">⌘</span></span><span class="mode-time" id="proTime">15:00</span><span class="mode-desc">5 уровней · Для смелых</span></button>
           </div>
           <button type="button" id="toReadyBtn" class="primary-button"><span>ПРИНЯТЬ ВЫЗОВ</span><span class="button-arrow">↗</span></button>
           <p class="fine-print">Бесплатно · Без регистрации · Работает без интернета</p>
@@ -83,14 +83,14 @@
             <div class="instruction"><span>02</span><div><strong>СЛЕДИ ЗА ТАЙМЕРОМ</strong><p>Один отсчёт на всю игру. Ошибка: −5 секунд, подсказка: −20 секунд.</p></div></div>
             <div class="instruction"><span>03</span><div><strong>УСТАНОВИ РЕКОРД</strong><p>Открой сейф до нуля и впиши свой ник в таблицу лидеров.</p></div></div>
           </div>
-          <div class="ready-summary"><span>РЕЖИМ <strong id="readyMode">ГОСТЬ</strong></span><span>ВРЕМЯ <strong id="readyTime">10:00</strong></span></div>
+          <div class="ready-summary"><span>РЕЖИМ <strong id="readyMode">ГОСТЬ</strong></span><span>ВРЕМЯ <strong id="readyTime">12:00</strong></span></div>
           <div class="player-entry"><label for="playerName" class="answer-label">ВАШ НИК (ДО 16 СИМВОЛОВ · НЕОБЯЗАТЕЛЬНО)</label><input id="playerName" type="text" maxlength="16" autocomplete="off" placeholder="Например, Coder77"></div>
           <button type="button" id="startBtn" class="primary-button"><span>НАЧАТЬ ВЗЛОМ</span><span class="button-arrow">→</span></button>
           <button type="button" id="backBtn" class="text-button">← Изменить режим</button>
         </div>
 
         <div class="content-surface challenge hidden" id="playScreen">
-          <div class="challenge-head"><div><div class="section-kicker" id="challengeProgress">СЕКТОР 01 / 05</div><div class="challenge-stage-id" id="challengeId">LOG-1</div></div><div id="timerWrap" class="timer-box" aria-live="off"><span class="timer-caption">ОСТАЛОСЬ</span><strong id="timerValue" class="timer-text">10:00</strong></div></div>
+          <div class="challenge-head"><div><div class="section-kicker" id="challengeProgress">СЕКТОР 01 / 05</div><div class="challenge-stage-id" id="challengeId">LOG-1</div></div><div id="timerWrap" class="timer-box" aria-live="off"><span class="timer-caption">ОСТАЛОСЬ</span><strong id="timerValue" class="timer-text">12:00</strong></div></div>
           <div class="progress-track" id="progressTrack" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
           <h2 class="challenge-title" id="challengeTitle">Анализ событий</h2>
           <p id="challengePrompt" class="challenge-description"></p>
@@ -120,7 +120,7 @@
           <div class="result-badge fail-badge">×</div>
           <h2 class="page-title result-title">ACCESS<br><em class="danger-color">DENIED.</em></h2>
           <p class="lead" id="failReason">Время истекло. Система заблокирована. Новый запуск — новые задачи.</p>
-          <div class="result-stats"><div><span>ОТКРЫТО ЗАМКОВ</span><strong id="failLocks">0 / 5</strong></div><div><span>ПОТРАЧЕНО</span><strong id="failTime">10:00</strong></div></div>
+          <div class="result-stats"><div><span>ОТКРЫТО ЗАМКОВ</span><strong id="failLocks">0 / 5</strong></div><div><span>ПОТРАЧЕНО</span><strong id="failTime">12:00</strong></div></div>
           <button type="button" class="primary-button replay-button">ПОПРОБОВАТЬ СНОВА <span class="button-arrow">↗</span></button>
           <button type="button" class="text-button show-ranking">Посмотреть рекорды →</button>
         </div>
@@ -143,7 +143,7 @@
     <div class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="adminHeading">
       <div class="admin-header"><div><div class="section-kicker">СЛУЖЕБНЫЙ ДОСТУП</div><h2 id="adminHeading">Панель организатора</h2></div><button type="button" id="adminClose" class="icon-action" aria-label="Закрыть">×</button></div>
       <div id="adminAuth"><p>Введите локальный PIN организатора.</p><div class="answer-row"><input type="password" inputmode="numeric" id="adminPin" maxlength="8" placeholder="PIN"><button type="button" id="adminUnlock" class="check-button">ВОЙТИ</button></div><p id="adminAuthError" class="admin-error"></p></div>
-      <div id="adminSettings" class="hidden"><label class="setting-field">Время режима «Гость» <select id="guestMinutes"><option value="9">9 минут</option><option value="10">10 минут</option><option value="11">11 минут</option><option value="12">12 минут</option></select></label><label class="setting-field">Время режима PRO <select id="proMinutes"><option value="11">11 минут</option><option value="12">12 минут</option><option value="13">13 минут</option><option value="14">14 минут</option><option value="15">15 минут</option></select></label><label class="setting-checkbox"><input type="checkbox" id="proEnabled"> Разрешить режим PRO</label><label class="setting-checkbox"><input type="checkbox" id="demoEnabled"> Демонстрационный режим (без записи результатов)</label><label class="setting-checkbox"><input type="checkbox" id="soundEnabled"> Включить звуковые эффекты</label><div class="admin-buttons"><button type="button" class="primary-button" id="adminSave">СОХРАНИТЬ НАСТРОЙКИ <span class="button-arrow">✓</span></button><button type="button" id="soundTest" class="outline-button">♫ ПРОВЕРИТЬ ЗВУК</button><button type="button" id="resetScores" class="outline-button danger-outline">СБРОСИТЬ РЕЙТИНГ</button></div><p class="fine-print">Изменение времени применится к следующему запуску. PIN по умолчанию указан в README.</p></div>
+      <div id="adminSettings" class="hidden"><label class="setting-field">Время режима «Гость» <select id="guestMinutes"><option value="12">12 минут</option><option value="13">13 минут</option><option value="14">14 минут</option><option value="15">15 минут</option></select></label><label class="setting-field">Время режима PRO <select id="proMinutes"><option value="15">15 минут</option><option value="16">16 минут</option><option value="17">17 минут</option><option value="18">18 минут</option></select></label><label class="setting-checkbox"><input type="checkbox" id="proEnabled"> Разрешить режим PRO</label><label class="setting-checkbox"><input type="checkbox" id="demoEnabled"> Демонстрационный режим (без записи результатов)</label><label class="setting-checkbox"><input type="checkbox" id="soundEnabled"> Включить звуковые эффекты</label><div class="admin-buttons"><button type="button" class="primary-button" id="adminSave">СОХРАНИТЬ НАСТРОЙКИ <span class="button-arrow">✓</span></button><button type="button" id="soundTest" class="outline-button">♫ ПРОВЕРИТЬ ЗВУК</button><button type="button" id="resetScores" class="outline-button danger-outline">СБРОСИТЬ РЕЙТИНГ</button></div><p class="fine-print">Изменение времени применится к следующему запуску. PIN по умолчанию указан в README.</p></div>
     </div>
   </div>
 </body>

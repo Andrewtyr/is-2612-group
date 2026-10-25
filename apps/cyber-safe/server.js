@@ -47,7 +47,7 @@ function loadGenerator(){
 }
 const CS=loadGenerator();
 const categories={guest:['LOG','CR','LG','LOG','CR'],pro:['LOG','CR','LG','JS','CR']};
-const times={guest:600000,pro:720000};
+const times={guest:720000,pro:900000};
 function safeName(input){const name=String(input||'').trim();return /^[A-Za-zА-Яа-яЁё0-9 _-]{1,16}$/.test(name)?name:null;}
 function task(cat,mode,index,usedTypes=[]){
   const generator=CS.gen[cat]; const available=generator.available?generator.available(mode):generator.templates;
@@ -107,7 +107,7 @@ function sameOrigin(req){const origin=req.headers.origin;if(!origin)return true;
 function passwordEquals(a,b){const x=crypto.createHash('sha256').update(a).digest();const y=crypto.createHash('sha256').update(b).digest();return crypto.timingSafeEqual(x,y);}
 function endpoint(req,url,res,body){
   const p=url.pathname;
-  if(req.method==='GET'&&p==='/api/config')return send(res,200,{online:true,version:'3.0',modes:{guest:10,pro:12}});
+  if(req.method==='GET'&&p==='/api/config')return send(res,200,{online:true,version:'3.0',modes:{guest:12,pro:15}});
   if(req.method==='GET'&&p==='/api/scores')return send(res,200,rankings());
   if(req.method==='POST'&&p==='/api/session/start'){
     const mode=body.mode;if(!categories[mode])return send(res,400,{error:'Некорректный режим'});

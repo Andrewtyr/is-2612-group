@@ -52,6 +52,7 @@ async function main(){
   fs.rmSync(corrupt,{recursive:true,force:true});
   for(let i=0;i<100;i++){if(server.exitCode!==null)throw Error('Server exited: '+logs);try{await req('/health');break;}catch(e){await new Promise(r=>setTimeout(r,80));}}
   let r=await req('/api/config');assert.equal(r.value.online,true);
+  assert.equal(r.value.modes.guest,12);assert.equal(r.value.modes.pro,15);
   r=await req('/api/scores');assert.equal(r.value.guest.length,0,'рекорды прежнего раунда не смешиваются с пятью этапами');
   r=await req('/api/admin/summary');assert.equal(r.status,401);
   r=await req('/api/admin/login',{password:'wrong'});assert.equal(r.status,401);
@@ -66,7 +67,7 @@ async function main(){
   let leader;
   for(const mode of ['guest','pro']){
     r=await req('/api/session/start',{mode,name:mode==='guest'?'ТестИгрок':'ProCoder'});assert.equal(r.status,200);
-    let state=r.value;const token=state.token;assert.equal(state.total,5);assert.equal(state.limit,mode==='guest'?600000:720000);
+    let state=r.value;const token=state.token;assert.equal(state.total,5);assert.equal(state.limit,mode==='guest'?720000:900000);
     const seenTypes={LOG:new Set(),CR:new Set()};
     assert.ok(!JSON.stringify(state.task).includes('"answer"'));
     const observer=await req('/api/admin/summary',undefined,cookie);assert.equal(observer.status,200);

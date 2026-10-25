@@ -5,7 +5,7 @@
   const $ = id => document.getElementById(id);
   const screens={intro:$('introScreen'),ready:$('readyScreen'),play:$('playScreen'),success:$('successScreen'),fail:$('failScreen'),ranking:$('rankingScreen')};
   const stageOrder={guest:['LOG','CR','LG','LOG','CR'],pro:['LOG','CR','LG','JS','CR']};
-  const onlineMinutes={guest:10,pro:12};
+  const onlineMinutes={guest:12,pro:15};
   const names={guest:'ГОСТЬ',pro:'PRO'};
   let page='intro',selectedMode='guest',rankMode='guest',rankReturn='intro';
   let run=null,timerId=null,resultsIdle=null,transitionId=null,audioCtx=null;

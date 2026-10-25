@@ -2,6 +2,7 @@
 (function (CS) {
   'use strict';
   const alphabet='АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ';
+  const alphabetHint=`Русский алфавит: ${[...alphabet].join(' ')}.`;
   const words=['КОД','ПАРОЛЬ','СЕРВЕР','СИСТЕМА','БРАУЗЕР','ПОРТАЛ','ДОСТУП','МАРШРУТ','КЛАВИАТУРА','МАССИВ','ОТЛАДКА','ШИФР','МОДУЛЬ','ХРАНИЛИЩЕ','БАЗА','ПАКЕТ','СИГНАЛ','КЛИЕНТ','РЕЗЕРВ','КОМПЬЮТЕР','ФУНКЦИЯ','ПРОГРАММА','ПАМЯТЬ','УСТРОЙСТВО','ОКНО','КНОПКА','ЧИСЛО','СТРОКА','ОБЪЕКТ','ИСТОЧНИК','РЕДАКТОР','СИНТАКСИС','ВЕТКА','ОБЛАКО','ТАБЛИЦА','ЗАЩИТА','ЗАГРУЗКА','ЭКРАН','ВЫВОД','ВВОД'];
   const asciiWords=['CODE','LOGIN','HOTEL','GUEST','SERVER','SYSTEM','SCRIPT','BROWSER','NETWORK','PORTAL','ACCESS','TOKEN','ROUTER','SECURE','KEYBOARD','ARRAY','DEBUG','CIPHER','MODULE','STORAGE','DATABASE','PACKET','SIGNAL','CLIENT','DIGITAL','BACKUP','PYTHON','COMPUTER','FUNCTION','PROGRAM','MEMORY','DEVICE','WINDOW','BUTTON','NUMBER','STRING','OBJECT','SOURCE','EDITOR','SYNTAX','BRANCH','CLOUD','COOKIE','TABLE','SAFETY','CODING','UPLOAD','SCREEN','OUTPUT','INPUT'];
   const shift = (word,k) => [...word].map(ch=>alphabet[(alphabet.indexOf(ch)+k%alphabet.length+alphabet.length)%alphabet.length]).join('');
@@ -13,12 +14,12 @@
     if(type==='CR-1') {
       cipher=shift(word,k);
       prompt=`Русское слово зашифровано шифром Цезаря: каждую букву сдвинули на +${k} по алфавиту с Ё. Чтобы найти исходное слово, сдвигайте буквы на ${k} шагов НАЗАД.`;
-      hint=`Первая буква: ${Array.from({length:k+1},(_,i)=>shift(cipher[0],-i)).join(' → ')}. Каждую следующую букву сдвиньте на ${k} шагов назад.`;
+      hint=`${alphabetHint} Первая буква: ${Array.from({length:k+1},(_,i)=>shift(cipher[0],-i)).join(' → ')}. Каждую следующую букву сдвиньте на ${k} шагов назад.`;
       note=`ШИФР ЦЕЗАРЯ · СДВИГ +${k}`;
     } else if(type==='CR-2') {
       cipher=shift(reverse(word),k);
       prompt=`Русское слово сначала записали задом наперёд, затем сдвинули каждую букву на +${k} по алфавиту с Ё. Сдвиньте буквы на ${k} шагов НАЗАД, потом переверните слово.`;
-      hint=`Первая буква: ${Array.from({length:k+1},(_,i)=>shift(cipher[0],-i)).join(' → ')}. Так расшифруйте всё слово, затем прочитайте его справа налево.`;
+      hint=`${alphabetHint} Первая буква: ${Array.from({length:k+1},(_,i)=>shift(cipher[0],-i)).join(' → ')}. Так расшифруйте всё слово, затем прочитайте его справа налево.`;
       note=`РЕВЕРС + ШИФР · СДВИГ +${k}`;
     } else {
       cipher=[...word].map(ch=>ch.charCodeAt(0)).join(' ');

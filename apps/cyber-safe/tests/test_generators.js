@@ -31,6 +31,7 @@ for(const category of ['LOG','CR','LG','JS']){
           assert.strictEqual(s.inputType,'cyrillic');
           assert(/русск/i.test(s.prompt));
           assert(s.hint.includes(`${s.cipher[0]} →`),'подсказка показывает обратный сдвиг первой буквы');
+          assert(s.hint.includes('Е Ё Ж'),'подсказка показывает русский алфавит с Ё');
         }
       }
       if(category==='LG'){
