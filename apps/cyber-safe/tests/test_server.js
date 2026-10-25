@@ -22,7 +22,8 @@ function solution(task){
   if(task.kind==='cipher'){
     if(task.ascii)return task.cipher.split(' ').map(x=>String.fromCharCode(+x)).join('');
     const shift=Number(task.note.match(/\+(\d+)/)[1]);
-    const result=[...task.cipher].map(x=>String.fromCharCode(65+(x.charCodeAt(0)-65-shift+26)%26)).join('');
+    const alphabet='АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ';
+    const result=[...task.cipher].map(x=>alphabet[(alphabet.indexOf(x)-shift+alphabet.length)%alphabet.length]).join('');
     return task.id==='CR-2'?[...result].reverse().join(''):result;
   }
   if(task.kind==='logic'){

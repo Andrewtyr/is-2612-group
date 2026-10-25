@@ -161,7 +161,7 @@
       const el=document.createElement('span');el.className=i<run.unlocked?'complete':i===run.stage?'current':'';track.append(el);
     }
     const inp=$('answerInput');inp.value='';inp.disabled=false;inp.placeholder=stage.placeholder;inp.maxLength=stage.maxLength;inp.inputMode=stage.inputType==='digits'||stage.inputType==='integer'?'numeric':'text';
-    setText('answerFormat',stage.inputType==='word'?'/ Латиница':stage.inputType==='integer'?'/ Целое число':'/ 3 цифры');
+    setText('answerFormat',stage.inputType==='cyrillic'?'/ Кириллица':stage.inputType==='word'?'/ Латиница':stage.inputType==='integer'?'/ Целое число':'/ 3 цифры');
     setFeedback('');$('hintBox').classList.add('hidden');$('hintBox').textContent='';$('hintBtn').disabled=false;
     $('checkBtn').disabled=false;renderLocks(run.stages.length,run.unlocked);setVault('playing');updatePenalties();
     setTimeout(()=>{if(page==='play'&&!run.finished)inp.focus({preventScroll:true});},80);
@@ -186,6 +186,7 @@
     let value=CS.normalize(input.value);
     if(!value){setFeedback('Введите ответ перед проверкой.',true);input.focus();return;}
     if(stage.inputType==='word'&&!/^[A-Z]+$/.test(value)){setFeedback('Используйте только английские буквы A–Z.',true);return;}
+    if(stage.inputType==='cyrillic'&&!/^[А-ЯЁ]+$/.test(value)){setFeedback('Используйте только русские буквы А–Я и Ё.',true);return;}
     if(stage.inputType==='digits'&&!/^\d{3}$/.test(value)){setFeedback('Нужно ввести ровно три цифры, включая возможный ноль в начале.',true);return;}
     if(stage.inputType==='integer'&&!/^\d{1,5}$/.test(value)){setFeedback('Введите целое неотрицательное число.',true);return;}
     if(run.online){
@@ -336,6 +337,7 @@
     if(!run)return;const stage=run.stages[run.stage];
     if(stage.inputType==='digits'||stage.inputType==='integer')this.value=this.value.replace(/\D/g,'');
     if(stage.inputType==='word')this.value=this.value.replace(/[^a-z]/gi,'').toUpperCase();
+    if(stage.inputType==='cyrillic')this.value=this.value.replace(/[^а-яё]/gi,'').toUpperCase();
   });
   renderMode();renderLocks(3,0);setVault('idle');screen('intro');initOnline();
   // Для локальных автотестов и демонстрации, без влияния на игру.

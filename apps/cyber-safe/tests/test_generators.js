@@ -25,7 +25,12 @@ for(const category of ['LOG','CR','LG','JS']){
       if(category==='CR'){
         const dec=type==='CR-3'?String.fromCharCode(...s.cipher.split(' ').map(Number)):CS.gen.CR.shift(s.cipher,-Number(s.note.match(/\+(\d+)/)?.[1]));
         assert.strictEqual(type==='CR-2'?CS.gen.CR.reverse(dec):dec,s.answer);
-        assert(/^[A-Z]+$/.test(s.answer));
+        if(type==='CR-3')assert(/^[A-Z]+$/.test(s.answer));
+        else {
+          assert(/^[А-ЯЁ]+$/.test(s.answer),'Шифр Цезаря должен использовать русские слова');
+          assert.strictEqual(s.inputType,'cyrillic');
+          assert(/русск/i.test(s.prompt));
+        }
       }
       if(category==='LG'){
         assert.strictEqual(s.solutionCount,1);
@@ -42,4 +47,6 @@ for(const category of ['LOG','CR','LG','JS']){
     console.log('✓',type,'—',count,'корректных вариантов, уникальных:',distinct.size);
   }
 }
+assert.strictEqual(CS.gen.CR.shift('Я',1),'А','алфавит замыкается после Я');
+assert.strictEqual(CS.gen.CR.shift('Е',1),'Ё','Ё участвует в сдвиге');
 console.log('PASS — все генераторы успешно проверены');
