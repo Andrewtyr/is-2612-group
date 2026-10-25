@@ -30,6 +30,7 @@ for(const category of ['LOG','CR','LG','JS']){
           assert(/^[А-ЯЁ]+$/.test(s.answer),'Шифр Цезаря должен использовать русские слова');
           assert.strictEqual(s.inputType,'cyrillic');
           assert(/русск/i.test(s.prompt));
+          assert(s.hint.includes(`${s.cipher[0]} →`),'подсказка показывает обратный сдвиг первой буквы');
         }
       }
       if(category==='LG'){
@@ -49,4 +50,6 @@ for(const category of ['LOG','CR','LG','JS']){
 }
 assert.strictEqual(CS.gen.CR.shift('Я',1),'А','алфавит замыкается после Я');
 assert.strictEqual(CS.gen.CR.shift('Е',1),'Ё','Ё участвует в сдвиге');
+assert.strictEqual(CS.gen.CR.shift('ОКНО',2),'РМПР','проверяем пример со скриншота');
+assert.strictEqual(CS.gen.CR.shift('РМПР',-2),'ОКНО','при расшифровке сдвигаемся на два шага назад');
 console.log('PASS — все генераторы успешно проверены');

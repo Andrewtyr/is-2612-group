@@ -46,14 +46,15 @@ function loadGenerator(){
   return ctx.window.CyberSafe;
 }
 const CS=loadGenerator();
-const categories={guest:['LOG','CR','LG'],pro:['LOG','CR','LG','JS']};
-const times={guest:360000,pro:480000};
+const categories={guest:['LOG','CR','LG','LOG','CR'],pro:['LOG','CR','LG','JS','CR']};
+const times={guest:600000,pro:720000};
 function safeName(input){const name=String(input||'').trim();return /^[A-Za-zА-Яа-яЁё0-9 _-]{1,16}$/.test(name)?name:null;}
-function task(cat,mode,index){
+function task(cat,mode,index,usedTypes=[]){
   const generator=CS.gen[cat]; const available=generator.available?generator.available(mode):generator.templates;
   const key=mode+'|'+cat+'|'+index;
-  const types=available.filter(t=>t!==lastTemplate[key]);
-  const pool=types.length?types:available;
+  const unused=available.filter(t=>!usedTypes.includes(t));
+  const types=unused.filter(t=>t!==lastTemplate[key]);
+  const pool=types.length?types:unused.length?unused:available;
   let t;
   for(let i=0;i<75;i++){
     t=generator.generate(CS.pick(pool));
@@ -80,7 +81,7 @@ function current(s){
 }
 function getSession(token){const s=sessions.get(String(token||''));if(!s)throw Object.assign(Error('Session not found'),{status:404});current(s);return s;}
 function getState(s){return {sessionId:s.id,mode:s.mode,name:s.name,stage:s.stage,unlocked:s.unlocked,total:s.tasks.length,hints:s.hints,wrong:s.wrong,penalties:s.penalties,limit:s.limit,deadline:s.deadline,status:current(s),task:s.status==='active'?stripTask(s.tasks[s.stage]):null,saved:s.saved,elapsedMs:s.status==='won'?s.elapsedMs:undefined};}
-function rankings(){return {guest:scores.guest,pro:scores.pro};}
+function rankings(){return {guest:scores.guest.filter(s=>s.levels===5).slice(0,10),pro:scores.pro.filter(s=>s.levels===5).slice(0,10)};}
 function persistScores(){const tmp=scoresFile+'.tmp.'+process.pid;fs.writeFileSync(tmp,JSON.stringify(scores,null,2),'utf8');fs.renameSync(tmp,scoresFile);}
 function summary(){
   const now=Date.now();const all=[...sessions.values()];
@@ -106,14 +107,15 @@ function sameOrigin(req){const origin=req.headers.origin;if(!origin)return true;
 function passwordEquals(a,b){const x=crypto.createHash('sha256').update(a).digest();const y=crypto.createHash('sha256').update(b).digest();return crypto.timingSafeEqual(x,y);}
 function endpoint(req,url,res,body){
   const p=url.pathname;
-  if(req.method==='GET'&&p==='/api/config')return send(res,200,{online:true,version:'3.0',modes:{guest:6,pro:8}});
+  if(req.method==='GET'&&p==='/api/config')return send(res,200,{online:true,version:'3.0',modes:{guest:10,pro:12}});
   if(req.method==='GET'&&p==='/api/scores')return send(res,200,rankings());
   if(req.method==='POST'&&p==='/api/session/start'){
     const mode=body.mode;if(!categories[mode])return send(res,400,{error:'Некорректный режим'});
     const active=[...sessions.values()].filter(s=>current(s)==='active').length;
     if(active>500)return send(res,429,{error:'Слишком много игроков'});
     const name=safeName(body.name)||'Игрок '+crypto.randomInt(1000,9999);
-    const tasks=categories[mode].map((c,i)=>task(c,mode,i));
+    const tasks=[];
+    categories[mode].forEach((c,i)=>tasks.push(task(c,mode,i,tasks.filter(t=>t.category===c).map(t=>t.id))));
     const now=Date.now();const token=secret();const s={token,id:crypto.randomUUID().slice(0,8).toUpperCase(),name,mode,tasks,stage:0,unlocked:0,
       startedAt:now,lastSeen:now,deadline:now+times[mode],limit:times[mode],wrong:0,hints:0,hintsUsed:[],penalties:0,status:'active',saved:false,endedAt:null};
     sessions.set(token,s);broadcast();return send(res,200,{token,...getState(s)});
@@ -144,9 +146,9 @@ function endpoint(req,url,res,body){
     if(Date.now()-s.endedAt>10*60000)return send(res,409,{error:'Время сохранения истекло'});
     const name=safeName(body.name);if(!name)return send(res,400,{error:'Некорректный ник (1–16 символов)'});
     const oldScores=scores[s.mode].slice();
-    scores[s.mode].push({name,ms:s.elapsedMs,hints:s.hints,created:s.endedAt});
-    scores[s.mode].sort((a,b)=>a.ms-b.ms||a.hints-b.hints||a.created-b.created);
-    scores[s.mode]=scores[s.mode].slice(0,10);
+    const current=[...scores[s.mode].filter(entry=>entry.levels===5),{name,ms:s.elapsedMs,hints:s.hints,created:s.endedAt,levels:5}];
+    current.sort((a,b)=>a.ms-b.ms||a.hints-b.hints||a.created-b.created);
+    scores[s.mode]=[...scores[s.mode].filter(entry=>entry.levels!==5),...current.slice(0,10)];
     try { persistScores(); } catch(e) { scores[s.mode]=oldScores;throw e; }
     s.name=name;s.saved=true;broadcast();
     return send(res,200,{ok:true,scores:rankings()});

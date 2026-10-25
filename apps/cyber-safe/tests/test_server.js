@@ -5,6 +5,7 @@ const fs=require('node:fs');const os=require('node:os');const path=require('node
 const vm=require('node:vm');
 const serverRoot=path.resolve(__dirname,'..');
 const storage=fs.mkdtempSync(path.join(os.tmpdir(),'cyber-test-'));
+fs.writeFileSync(path.join(storage,'scores.json'),JSON.stringify({guest:[{name:'Старый рекорд',ms:1000,hints:0,created:1}],pro:[]}));
 const port=23000+Math.floor(Math.random()*10000);
 const url='http://127.0.0.1:'+port;
 const server=spawn(process.execPath,['server.js'],{cwd:serverRoot,env:{...process.env,ADMIN_PASSWORD:'integration_test_secret_password_!2026',PORT:String(port),HOST:'127.0.0.1',DATA_DIR:storage,BASE_PATH:'/cyber-safe',PUBLIC_ORIGIN:'https://is2612.ru'},stdio:['ignore','pipe','pipe']});
@@ -51,6 +52,7 @@ async function main(){
   fs.rmSync(corrupt,{recursive:true,force:true});
   for(let i=0;i<100;i++){if(server.exitCode!==null)throw Error('Server exited: '+logs);try{await req('/health');break;}catch(e){await new Promise(r=>setTimeout(r,80));}}
   let r=await req('/api/config');assert.equal(r.value.online,true);
+  r=await req('/api/scores');assert.equal(r.value.guest.length,0,'рекорды прежнего раунда не смешиваются с пятью этапами');
   r=await req('/api/admin/summary');assert.equal(r.status,401);
   r=await req('/api/admin/login',{password:'wrong'});assert.equal(r.status,401);
   r=await req('/api/admin/login',{password:'integration_test_secret_password_!2026'});assert.equal(r.status,200);
@@ -64,7 +66,8 @@ async function main(){
   let leader;
   for(const mode of ['guest','pro']){
     r=await req('/api/session/start',{mode,name:mode==='guest'?'ТестИгрок':'ProCoder'});assert.equal(r.status,200);
-    let state=r.value;const token=state.token;assert.equal(state.total,mode==='guest'?3:4);
+    let state=r.value;const token=state.token;assert.equal(state.total,5);assert.equal(state.limit,mode==='guest'?600000:720000);
+    const seenTypes={LOG:new Set(),CR:new Set()};
     assert.ok(!JSON.stringify(state.task).includes('"answer"'));
     const observer=await req('/api/admin/summary',undefined,cookie);assert.equal(observer.status,200);
     assert.ok(observer.value.players.some(p=>p.name===(mode==='guest'?'ТестИгрок':'ProCoder')));
@@ -73,6 +76,10 @@ async function main(){
     const hint=await req('/api/session/hint',{token});assert.ok(hint.value.hint);assert.equal(hint.value.deadline,beforeHint-20000);
     const hintAgain=await req('/api/session/hint',{token});assert.equal(hintAgain.status,409);
     for(let i=0;i<state.total;i++){
+      if(seenTypes[state.task.category]){
+        assert.equal(seenTypes[state.task.category].has(state.task.id),false,'один тип задания не должен повторяться в раунде');
+        seenTypes[state.task.category].add(state.task.id);
+      }
       const answer=solution(state.task);r=await req('/api/session/answer',{token,value:answer});
       assert.equal(r.status,200,JSON.stringify(r.value));assert.equal(r.value.correct,true);
       state=r.value;if(i<state.total-1)assert.equal(state.status,'active');
@@ -83,6 +90,7 @@ async function main(){
   }
   leader=await req('/api/scores');assert.equal(leader.value.guest.length,1);assert.equal(leader.value.pro.length,1);
   assert.ok(fs.existsSync(path.join(storage,'scores.json')));
+  assert.equal(JSON.parse(fs.readFileSync(path.join(storage,'scores.json'),'utf8')).guest.length,2,'старые рекорды сохраняются в файле');
   const monitorResponse=await fetch(url+'/monitor');assert.equal(monitorResponse.status,200);assert.match(await monitorResponse.text(),/ЦЕНТР УПРАВЛЕНИЯ/);
   assert.match(await (await fetch(url+'/')).text(),/<base href="\/cyber-safe\/">/);
   assert.match(await (await fetch(url+'/monitor')).text(),/\/cyber-safe\/js\/monitor.js/);

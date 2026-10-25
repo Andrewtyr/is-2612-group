@@ -4,7 +4,8 @@
   const CS = root.CyberSafe;
   const $ = id => document.getElementById(id);
   const screens={intro:$('introScreen'),ready:$('readyScreen'),play:$('playScreen'),success:$('successScreen'),fail:$('failScreen'),ranking:$('rankingScreen')};
-  const stageOrder={guest:['LOG','CR','LG'],pro:['LOG','CR','LG','JS']};
+  const stageOrder={guest:['LOG','CR','LG','LOG','CR'],pro:['LOG','CR','LG','JS','CR']};
+  const onlineMinutes={guest:10,pro:12};
   const names={guest:'ГОСТЬ',pro:'PRO'};
   let page='intro',selectedMode='guest',rankMode='guest',rankReturn='intro';
   let run=null,timerId=null,resultsIdle=null,transitionId=null,audioCtx=null;
@@ -43,7 +44,7 @@
       const footer=$('footerNotice');footer.textContent='ОНЛАЙН · ЕДИНЫЙ РЕЙТИНГ · ЖИВЫЕ СЕССИИ';
       document.querySelector('#rankingScreen .fine-print').textContent='Общие рекорды всех игроков. Результаты сохраняются на сервере.';
       document.querySelector('#introScreen .fine-print').textContent='Онлайн · Единый рейтинг · Новые задания при каждом запуске';
-      $('guestTime').textContent='06:00';$('proTime').textContent='08:00';
+      $('guestTime').textContent=mmss(onlineMinutes.guest*60000);$('proTime').textContent=mmss(onlineMinutes.pro*60000);
       const nav=document.querySelector('.nav-actions');const link=document.createElement('a');link.href='/cyber-safe/monitor';link.target='_blank';link.rel='noopener noreferrer';link.className='nav-btn monitor-link';link.textContent='◉ Монитор';nav.insertBefore(link,$('soundBtn'));
       renderMode();
     }catch(e) { /* static/offline version still usable */ }
@@ -87,21 +88,22 @@
     if(!settings.proEnabled&&!online&&selectedMode==='pro')selectedMode='guest';
     ['guest','pro'].forEach(mode=>{const b=$(mode+'Mode');b.classList.toggle('selected',mode===selectedMode);b.setAttribute('aria-pressed',String(mode===selectedMode));});
     $('proMode').disabled=!settings.proEnabled&&!online;
-    setText('guestTime',mmss(online?360000:settings.guestMinutes*60000));setText('proTime',mmss(online?480000:settings.proMinutes*60000));
-    setText('readyMode',names[selectedMode]);setText('readyTime',mmss(online?(selectedMode==='guest'?360000:480000):duration(selectedMode)));
+    setText('guestTime',mmss(online?onlineMinutes.guest*60000:settings.guestMinutes*60000));setText('proTime',mmss(online?onlineMinutes.pro*60000:settings.proMinutes*60000));
+    setText('readyMode',names[selectedMode]);setText('readyTime',mmss(online?onlineMinutes[selectedMode]*60000:duration(selectedMode)));
     $('soundBtn').textContent=settings.sound?'♫':'♩';$('soundBtn').setAttribute('aria-label',settings.sound?'Выключить звук':'Включить звук');
     setText('footerNotice',online?'ОНЛАЙН · ЕДИНЫЙ РЕЙТИНГ · ЖИВЫЕ СЕССИИ':settings.demo?'ДЕМО-РЕЖИМ · РЕЗУЛЬТАТЫ НЕ ЗАПИСЫВАЮТСЯ':CS.storage.persistent?'OFFLINE-READY · НИКАКИХ ВНЕШНИХ СЕРВИСОВ':'ВНИМАНИЕ: БРАУЗЕР НЕ СОХРАНЯЕТ РЕКОРДЫ');
   }
-  function intro(){abandon();clearTimers();run=null;screen('intro');setVault('idle');renderLocks(selectedMode==='pro'?4:3,0);renderMode();}
-  function selectMode(mode){if(mode==='pro'&&!CS.storage.settings.proEnabled&&!online)return;selectedMode=mode;renderMode();renderLocks(mode==='pro'?4:3,0);playSound('click');}
+  function intro(){abandon();clearTimers();run=null;screen('intro');setVault('idle');renderLocks(stageOrder[selectedMode].length,0);renderMode();}
+  function selectMode(mode){if(mode==='pro'&&!CS.storage.settings.proEnabled&&!online)return;selectedMode=mode;renderMode();renderLocks(stageOrder[mode].length,0);playSound('click');}
   function ready(){screen('ready');setVault('ready');renderLocks(stageOrder[selectedMode].length,0);renderMode();playSound('click');}
-  function generateStage(category,index){
+  function generateStage(category,index,usedTypes=[]){
     const gen=CS.gen[category];
     const allowed=gen.available?gen.available(selectedMode):gen.templates;
+    const unused=allowed.filter(type=>!usedTypes.includes(type));
     const key=selectedMode+'|'+category+'|'+index;
     const prev=CS.storage.getLastTemplate(key);
-    const pool=allowed.filter(x=>x!==prev);
-    const chosen=pool.length?pool:allowed;
+    const pool=unused.filter(x=>x!==prev);
+    const chosen=pool.length?pool:unused.length?unused:allowed;
     const hist=new Set(CS.storage.getHistory(category));
     let candidate=null;
     for(let i=0;i<75;i++){
@@ -132,7 +134,7 @@
       return;
     }
     let stages;
-    try{stages=stageOrder[selectedMode].map((cat,i)=>generateStage(cat,i));}catch(e){alert('Не удалось создать задание. Обновите страницу. '+e.message);return;}
+    try{stages=[];stageOrder[selectedMode].forEach((cat,i)=>stages.push(generateStage(cat,i,stages.filter(s=>s.category===cat).map(s=>s.id))));}catch(e){alert('Не удалось создать задание. Обновите страницу. '+e.message);return;}
     run={mode:selectedMode,stages,stage:0,unlocked:0,hintsUsed:Array(stages.length).fill(false),hints:0,wrong:0,penalties:0,limit:duration(selectedMode),deadline:performance.now()+duration(selectedMode),remaining:duration(selectedMode),finished:false,saved:false};
     screen('play');setVault('playing');renderLocks(stages.length,0);renderStage();updateTime();timerId=setInterval(updateTime,80);playSound('click');
   }
@@ -264,12 +266,12 @@
       }catch(e){$('saveScoreBtn').disabled=false;setText('saveScoreFeedback','Не удалось сохранить: '+e.message);}
       return;
     }
-    CS.storage.addScore(run.mode,{name,ms:run.effective,hints:run.hints,created:Date.now()});run.saved=true;$('saveScoreBtn').disabled=true;
+    CS.storage.addScore(run.mode,{name,ms:run.effective,hints:run.hints,created:Date.now(),levels:run.stages.length});run.saved=true;$('saveScoreBtn').disabled=true;
     setText('saveScoreFeedback','Результат сохранён! Открой таблицу рекордов.');playSound('success');
   }
   function showRanking(){
     if(page==='play'&&!confirm('Прервать текущую игру и открыть рекорды?'))return;
-    if(page==='play'){abandon();clearTimers();run=null;rankReturn='intro';setVault('idle');renderLocks(3,0);} else rankReturn=page;
+    if(page==='play'){abandon();clearTimers();run=null;rankReturn='intro';setVault('idle');renderLocks(stageOrder[selectedMode].length,0);} else rankReturn=page;
     rankMode=(run&&run.mode)||selectedMode;screen('ranking');renderRanking();if(online)syncRanking();
   }
   async function syncRanking(){
@@ -339,7 +341,7 @@
     if(stage.inputType==='word')this.value=this.value.replace(/[^a-z]/gi,'').toUpperCase();
     if(stage.inputType==='cyrillic')this.value=this.value.replace(/[^а-яё]/gi,'').toUpperCase();
   });
-  renderMode();renderLocks(3,0);setVault('idle');screen('intro');initOnline();
+  renderMode();renderLocks(stageOrder[selectedMode].length,0);setVault('idle');screen('intro');initOnline();
   // Для локальных автотестов и демонстрации, без влияния на игру.
   if(root.__CYBER_SAFE_TEST__) CS.debug={get state(){return {page,selectedMode,run:run?{...run,stages:run.stages.map(s=>({...s}))}:null};},generateStage:(category,mode='guest')=>{const prev=selectedMode;selectedMode=mode;const result=generateStage(category,0);selectedMode=prev;return result;}};
 })(window);
