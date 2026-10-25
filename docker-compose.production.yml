@@ -31,14 +31,42 @@ services:
       postgres:
         condition: service_healthy
     command: sh -c "pnpm --filter @group/api db:deploy && pnpm --filter @group/api start"
+  cyber-safe:
+    build:
+      context: ./apps/cyber-safe
+    restart: unless-stopped
+    env_file: .env.cyber-safe
+    environment:
+      PORT: 8000
+      HOST: 0.0.0.0
+      BASE_PATH: /cyber-safe
+      PUBLIC_ORIGIN: https://is2612.ru
+      DATA_DIR: /app/data
+    volumes:
+      - cyber_safe_data:/app/data
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
     restart: unless-stopped
     depends_on:
-      - api
+      api:
+        condition: service_started
+      cyber-safe:
+        condition: service_healthy
     ports:
       - '127.0.0.1:3000:3000'
 volumes:
   postgres_data:
+  cyber_safe_data:

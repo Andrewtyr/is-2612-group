@@ -157,6 +157,10 @@ export default function Home() {
               </button>
             </form>
           )}
+          <a className="cyber-safe-entry" href="/cyber-safe">
+            <strong>Играть в CYBER SAFE 3.0 ↗</strong>
+            <span>Открыто для гостей без входа в аккаунт</span>
+          </a>
         </section>
       </main>
     );

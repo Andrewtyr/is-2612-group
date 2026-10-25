@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#08111f">
+  <base href="/cyber-safe/">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="monitor.css">
+  <script src="/cyber-safe/js/monitor.js" defer></script>
+  <title>CYBER SAFE · Центр управления</title>
+</head>
+<body>
+  <div class="backgrid"></div>
+  <section id="login" class="login-view">
+    <div class="login-card">
+      <div class="login-icon">◈</div>
+      <div class="top-tag">CYBER SAFE / ADMIN ACCESS</div>
+      <h1>ЦЕНТР <span>УПРАВЛЕНИЯ.</span></h1>
+      <p>Наблюдайте за участниками, отслеживайте этапы прохождения и показывайте живой рейтинг на большом экране.</p>
+      <form id="loginForm">
+        <label for="password">ПАРОЛЬ ОРГАНИЗАТОРА</label>
+        <input type="password" id="password" placeholder="Пароль сервера" autocomplete="current-password" required>
+        <button type="submit" id="loginButton" class="primary">ОТКРЫТЬ МОНИТОР <span>↗</span></button>
+        <div id="loginError" role="status" class="error"></div>
+      </form>
+      <div class="login-note">Доступ защищён сервером · Пароль задаётся при установке</div>
+    </div>
+  </section>
+
+  <div id="dashboard" class="dashboard hidden">
+    <header class="dashboard-header">
+      <div class="logo"><div class="logo-symbol">◈</div><div><strong>CYBER<span>SAFE</span></strong><small>ЦЕНТР УПРАВЛЕНИЯ · 3.0</small></div></div>
+      <div class="header-right">
+        <span class="connection"><i id="connectionDot"></i><span id="connectionLabel">ПОДКЛЮЧЕНИЕ</span></span>
+        <button id="displayBtn" class="tool-btn" type="button">▣ ЭКРАН ДЛЯ ГОСТЕЙ</button>
+        <button id="fullBtn" class="tool-btn" type="button">⛶ ПОЛНЫЙ ЭКРАН</button>
+        <button id="logoutBtn" class="tool-btn subtle" type="button">ВЫХОД</button>
+      </div>
+    </header>
+    <main class="dashboard-main">
+      <div class="headline"><div><div class="eyebrow">// УПРАВЛЕНИЕ ИНТЕРАКТИВНЫМ СТЕНДОМ</div><h1>НАБЛЮДЕНИЕ <span>В РЕАЛЬНОМ ВРЕМЕНИ</span></h1><p>Активные сессии, прогресс игроков и общий рейтинг. Обновляется автоматически.</p></div><div class="current-time" id="timeLabel">—</div></div>
+      <section class="metrics">
+        <article class="metric"><div class="metric-label">В ИГРЕ СЕЙЧАС <span class="tiny-green">● LIVE</span></div><div id="countActive" class="metric-value">0</div><div class="metric-foot">активных прохождений</div></article>
+        <article class="metric"><div class="metric-label">ЗАПУЩЕНО СЕГОДНЯ</div><div id="countToday" class="metric-value">0</div><div class="metric-foot">всего попыток</div></article>
+        <article class="metric"><div class="metric-label">ОТКРЫЛИ СЕЙФ</div><div id="countWinners" class="metric-value">0</div><div class="metric-foot">успешных прохождений за сегодня</div></article>
+        <article class="metric"><div class="metric-label">ЛУЧШИЙ РЕЗУЛЬТАТ</div><div id="bestScore" class="metric-value">—</div><div class="metric-foot" id="bestMode">среди двух режимов</div></article>
+      </section>
+      <div class="columns">
+        <section class="panel sessions-panel"><div class="panel-head"><div><div class="eyebrow">01 / СЕССИИ</div><h2>ИГРОКИ И ЭТАПЫ <span id="liveBadge" class="badge">0 LIVE</span></h2></div><select id="sessionFilter" aria-label="Фильтр сессий"><option value="active">Активные</option><option value="all">За последний час</option><option value="guest">Режим Гость</option><option value="pro">Режим PRO</option></select></div><div id="sessions" class="sessions-list"></div><div id="selectedDetail" class="selected-detail hidden"></div></section>
+        <section class="panel leaderboard"><div class="panel-head"><div><div class="eyebrow">02 / РЕКОРДЫ</div><h2>ТАБЛИЦА ЛИДЕРОВ</h2></div><div class="tabs"><button id="guestTab" class="tab active" data-mode="guest">ГОСТЬ</button><button id="proTab" class="tab" data-mode="pro">PRO</button></div></div><div class="ranking-header"><span># / ИГРОК</span><span>ВРЕМЯ</span><span>ПОДСКАЗКИ</span></div><div id="ranking" class="rankings"></div><div class="leader-footer">Рейтинг общий для всех устройств · Сохраняется на сервере</div></section>
+      </div>
+      <div class="bottomline"><span>АЛТАЙСКАЯ АКАДЕМИЯ ГОСТЕПРИИМСТВА · ПЦК «ИНФОРМАЦИОННЫЕ СИСТЕМЫ»</span><span id="updated">ОЖИДАНИЕ ПОДКЛЮЧЕНИЯ</span></div>
+    </main>
+  </div>
+</body>
+</html>

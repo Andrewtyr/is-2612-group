@@ -839,6 +839,27 @@ tbody tr:hover {
   line-height: 1.15;
   font-size: 38px;
 }
+.cyber-safe-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 24px;
+  padding: 16px 18px;
+  border: 1px solid #9bd4d7;
+  border-radius: 16px;
+  background: #effafb;
+  color: #075e69;
+  text-decoration: none;
+}
+.cyber-safe-entry:hover,
+.cyber-safe-entry:focus-visible {
+  border-color: #087f88;
+  background: #e0f4f5;
+}
+.cyber-safe-entry span {
+  color: #47717a;
+  font-size: 13px;
+}
 .brand-mark {
   background: var(--accent);
 }

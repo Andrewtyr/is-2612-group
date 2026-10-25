@@ -7,6 +7,14 @@ const nextConfig: NextConfig = {
         source: '/api/:path*',
         destination: `${process.env.API_INTERNAL_URL ?? 'http://localhost:4000'}/:path*`,
       },
+      {
+        source: '/cyber-safe',
+        destination: `${process.env.CYBER_SAFE_INTERNAL_URL ?? 'http://localhost:8000'}/`,
+      },
+      {
+        source: '/cyber-safe/:path*',
+        destination: `${process.env.CYBER_SAFE_INTERNAL_URL ?? 'http://localhost:8000'}/:path*`,
+      },
     ];
   },
 };

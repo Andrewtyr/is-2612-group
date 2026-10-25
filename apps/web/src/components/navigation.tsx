@@ -29,6 +29,7 @@ const paths: Record<string, string> = {
   settings: 'M4 7h16M4 17h16M8 4v6m8 4v6',
   upload: 'M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6',
   more: 'M5 12h1m5 0h1m5 0h1',
+  game: 'M4 10V7a4 4 0 0 1 8 0v3m0 0h8v11H4V10h16m-8 4v3',
 };
 function Icon({ name }: { name: string }) {
   return (
@@ -75,6 +76,7 @@ export default function Navigation() {
       : [{ href: '/grades', label: 'Мои оценки', icon: 'book' }]),
     { href: '/notifications', label: 'Уведомления', icon: 'bell' },
     { href: '/attendance', label: 'Посещаемость', icon: 'chart' },
+    { href: '/cyber-safe', label: 'Игра CYBER SAFE', icon: 'game' },
     ...(['HEAD', 'DEPUTY'].includes(user.role)
       ? [{ href: '/grades', label: 'Мои оценки', icon: 'book' }]
       : []),
@@ -88,16 +90,27 @@ export default function Navigation() {
       ? [{ href: '/grades/admin', label: 'Оценки группы', icon: 'book' }]
       : []),
   ];
-  const renderLink = (link: (typeof links)[number]) => (
-    <Link
-      key={link.href}
-      href={link.href}
-      aria-current={pathname === link.href ? 'page' : undefined}
-    >
-      <Icon name={link.icon} />
-      <span>{link.label}</span>
-    </Link>
-  );
+  const renderLink = (link: (typeof links)[number]) => {
+    const content = (
+      <>
+        <Icon name={link.icon} />
+        <span>{link.label}</span>
+      </>
+    );
+    return link.href === '/cyber-safe' ? (
+      <a key={link.href} href={link.href}>
+        {content}
+      </a>
+    ) : (
+      <Link
+        key={link.href}
+        href={link.href}
+        aria-current={pathname === link.href ? 'page' : undefined}
+      >
+        {content}
+      </Link>
+    );
+  };
   async function logout() {
     try {
       await api('/auth/logout', { method: 'POST' });
