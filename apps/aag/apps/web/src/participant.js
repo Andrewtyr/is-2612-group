@@ -20,6 +20,7 @@ async function api(path, method = 'GET', data) {
 }
 function stage(slide) {
   const box = $('stage'); box.replaceChildren();
+  box.classList.toggle('question-media-stage', ['quiz', 'multi-quiz', 'poll', 'scale', 'text', 'word-cloud'].includes(slide.type) && !!slide.elements?.length);
   window.applySlideAppearance(box, slide, state.aspectRatio);
   if (imageObjectUrl) { URL.revokeObjectURL(imageObjectUrl); imageObjectUrl = null; }
   for (const url of assetObjectUrls) URL.revokeObjectURL(url);
@@ -34,16 +35,10 @@ function stage(slide) {
       .catch((issue) => message(issue.message));
     return;
   }
-  if (slide.elements) {
+  const questionSlide = ['quiz', 'multi-quiz', 'poll', 'scale', 'text', 'word-cloud'].includes(slide.type);
+  if (slide.elements && !questionSlide) {
     box.append(window.renderSlideElements(slide, { aspectRatio: state.aspectRatio }));
-    const expectedIndex = state.slideIndex;
-    box.querySelectorAll('img[data-asset-id]').forEach((image) => {
-      image.removeAttribute('src');
-      fetch(`/aag/api/assets/${image.dataset.assetId}?event=${credentials.eventId}`, { headers: { 'x-participant-token': credentials.token } })
-        .then((response) => { if (!response.ok) throw new Error('Не удалось загрузить изображение.'); return response.blob(); })
-        .then((blob) => { if (state?.slideIndex !== expectedIndex) return; const url = URL.createObjectURL(blob); assetObjectUrls.push(url); image.src = url; })
-        .catch((issue) => message(issue.message));
-    });
+    loadImages(box);
     return;
   }
   const eyebrow = document.createElement('small'); eyebrow.textContent = slide.eyebrow;
@@ -51,6 +46,17 @@ function stage(slide) {
   box.append(eyebrow, title);
   if (slide.body) { const body = document.createElement('p'); body.textContent = slide.body; box.append(body); }
   if (slide.bullets) { const list = document.createElement('ul'); slide.bullets.forEach((value) => { const item = document.createElement('li'); item.textContent = value; list.append(item); }); box.append(list); }
+  if (questionSlide && slide.elements?.length) { const media = document.createElement('div'); media.className = 'question-media-preview'; media.append(window.renderSlideElements({ elements: slide.elements }, { aspectRatio: state.aspectRatio })); box.append(media); loadImages(media); }
+}
+function loadImages(box) {
+  const expectedIndex = state.slideIndex;
+  box.querySelectorAll('img[data-asset-id]').forEach((image) => {
+    image.removeAttribute('src');
+    fetch(`/aag/api/assets/${image.dataset.assetId}?event=${credentials.eventId}`, { headers: { 'x-participant-token': credentials.token } })
+      .then((response) => { if (!response.ok) throw new Error('Не удалось загрузить изображение.'); return response.blob(); })
+      .then((blob) => { if (state?.slideIndex !== expectedIndex) return; const url = URL.createObjectURL(blob); assetObjectUrls.push(url); image.src = url; })
+      .catch((issue) => message(issue.message));
+  });
 }
 function render(data) {
   state = data; $('join-panel').hidden = true; $('participant-panel').hidden = false;

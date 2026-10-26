@@ -26,7 +26,10 @@ export function createImportStore(dbPath, uploadRoot, renderer = renderDocument)
     owns(id, ownerId) { return get(id)?.owner_id === ownerId; },
     ownsAsset(id, ownerId) { return db.prepare('SELECT owner_id FROM assets WHERE id=?').get(id)?.owner_id === ownerId; },
     verifyAssets(slides, ownerId) {
-      for (const slide of slides ?? []) for (const element of slide.elements ?? []) if (element.type === 'image' && !this.ownsAsset(element.assetId, ownerId)) fail(403, 'Изображение недоступно.');
+      for (const slide of slides ?? []) for (const element of slide.elements ?? []) if (['image', 'video'].includes(element.type) && !(element.type === 'video' && element.url)) {
+        const asset = db.prepare('SELECT owner_id,extension FROM assets WHERE id=?').get(element.assetId);
+        if (!asset || asset.owner_id !== ownerId || (element.type === 'video') !== ['.mp4', '.webm'].includes(asset.extension)) fail(403, 'Медиафайл недоступен или имеет другой формат.');
+      }
     },
     verifySlides(slides, ownerId) {
       for (const slide of slides ?? []) if (slide.type === 'imported') {
@@ -80,12 +83,13 @@ export function createImportStore(dbPath, uploadRoot, renderer = renderDocument)
       if (!record || !Number.isInteger(page) || page < 1 || page > record.slide_count) fail(404, 'Слайд не найден.');
       return join(uploadRoot, id, `slide-${page}.png`);
     },
-    async uploadImage(req, ownerId) {
+    async uploadAsset(req, ownerId) {
       const type = req.headers['content-type'];
-      const extension = type === 'image/png' ? '.png' : type === 'image/jpeg' ? '.jpg' : null;
-      if (!extension) fail(400, 'Поддерживаются только изображения PNG и JPEG.');
-      const max = 10 * 1024 * 1024;
-      if (Number(req.headers['content-length']) > max) fail(413, 'Изображение больше 10 МБ.');
+      const extension = { 'image/png': '.png', 'image/jpeg': '.jpg', 'video/mp4': '.mp4', 'video/webm': '.webm' }[type];
+      if (!extension) fail(400, 'Поддерживаются PNG, JPEG, MP4 и WebM.');
+      const video = type.startsWith('video/');
+      const max = (video ? 100 : 10) * 1024 * 1024;
+      if (Number(req.headers['content-length']) > max) fail(413, `Файл больше ${video ? 100 : 10} МБ.`);
       const id = randomUUID();
       const directory = join(uploadRoot, 'assets');
       const path = join(directory, id + extension);
@@ -96,16 +100,16 @@ export function createImportStore(dbPath, uploadRoot, renderer = renderDocument)
         try {
           for await (const chunk of req) {
             size += chunk.length;
-            if (size > max) fail(413, 'Изображение больше 10 МБ.');
+            if (size > max) fail(413, `Файл больше ${video ? 100 : 10} МБ.`);
             let offset = 0;
             while (offset < chunk.length) offset += (await file.write(chunk, offset, chunk.length - offset)).bytesWritten;
           }
         } finally { await file.close(); }
-        if (size < 8) fail(400, 'Изображение повреждено.');
-        const source = await open(path, 'r'); const header = Buffer.alloc(8);
-        try { await source.read(header, 0, 8, 0); } finally { await source.close(); }
-        const valid = extension === '.png' ? header.toString('hex') === '89504e470d0a1a0a' : header.subarray(0, 3).toString('hex') === 'ffd8ff';
-        if (!valid) fail(400, 'Формат изображения не соответствует файлу.');
+        if (size < 8) fail(400, 'Медиафайл повреждён.');
+        const source = await open(path, 'r'); const header = Buffer.alloc(16);
+        try { await source.read(header, 0, 16, 0); } finally { await source.close(); }
+        const valid = extension === '.png' ? header.subarray(0, 8).toString('hex') === '89504e470d0a1a0a' : extension === '.jpg' ? header.subarray(0, 3).toString('hex') === 'ffd8ff' : extension === '.mp4' ? size >= 12 && header.toString('ascii', 4, 8) === 'ftyp' : header.subarray(0, 4).toString('hex') === '1a45dfa3';
+        if (!valid) fail(400, 'Формат медиафайла не соответствует файлу.');
         db.prepare('INSERT INTO assets(id,owner_id,extension,created_at) VALUES(?,?,?,?)').run(id, ownerId, extension, new Date().toISOString());
         return { id };
       } catch (error) { await rm(path, { force: true }); throw error; }

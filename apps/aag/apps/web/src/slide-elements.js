@@ -1,4 +1,4 @@
-window.renderSlideElements = function renderSlideElements(slide, { editable = false, selectedIndex = -1, onSelect = () => {}, onChange = () => {}, backgroundSrc, aspectRatio = '16:9' } = {}) {
+window.renderSlideElements = function renderSlideElements(slide, { editable = false, playback = false, selectedIndex = -1, onSelect = () => {}, onChange = () => {}, backgroundSrc, aspectRatio = '16:9' } = {}) {
   const surface = document.createElement('div'); surface.className = 'element-slide';
   surface.style.aspectRatio = aspectRatio === '4:3' ? '4 / 3' : '16 / 9';
   if (slide.background) surface.style.background = slide.background;
@@ -15,9 +15,22 @@ window.renderSlideElements = function renderSlideElements(slide, { editable = fa
     object.className = `slide-object slide-object-${element.type}${editable && index === selectedIndex ? ' selected' : ''}`;
     const position = () => { for (const key of ['x', 'y']) object.style[key === 'x' ? 'left' : 'top'] = `${element[key]}%`; for (const key of ['w', 'h']) object.style[key === 'w' ? 'width' : 'height'] = `${element[key]}%`; };
     position();
+    if (element.rotation) object.style.transform = `rotate(${element.rotation}deg)`;
     if (element.type === 'shape') { object.style.backgroundColor = element.color; if (element.shape === 'ellipse') object.style.borderRadius = '50%'; }
     else if (element.type === 'image') {
-      const image = document.createElement('img'); image.alt = 'Изображение слайда'; image.dataset.assetId = element.assetId; image.src = `/aag/api/assets/${element.assetId}`; object.append(image);
+      const image = document.createElement('img'); image.alt = 'Изображение слайда'; image.dataset.assetId = element.assetId; image.src = `/aag/api/assets/${element.assetId}`; image.style.objectFit = element.fit || 'contain'; image.style.objectPosition = `${element.focalX ?? 50}% ${element.focalY ?? 50}%`; object.append(image);
+    } else if (element.type === 'video') {
+      if (editable || !playback) { const placeholder = document.createElement('div'); placeholder.className = 'video-placeholder'; placeholder.textContent = `▶ ${element.provider ? 'Видео по ссылке' : 'Видео'}${!editable ? ' · на экране аудитории' : ''}`; object.append(placeholder); }
+      else if (element.assetId) {
+        const video = document.createElement('video'); video.src = `/aag/api/assets/${element.assetId}`; video.controls = true; video.preload = 'metadata'; video.playsInline = true; video.autoplay = !!element.autoplay; video.muted = element.muted ?? true; video.loop = !!element.loop; video.style.objectFit = element.fit || 'contain'; video.style.objectPosition = `${element.focalX ?? 50}% ${element.focalY ?? 50}%`;
+        video.addEventListener('loadedmetadata', () => { if (element.startTime && element.startTime < video.duration) video.currentTime = element.startTime; }); object.append(video);
+      } else {
+        const url = new URL(element.url);
+        if (element.provider === 'youtube') { url.searchParams.set('autoplay', element.autoplay ? '1' : '0'); url.searchParams.set('mute', element.muted ? '1' : '0'); url.searchParams.set('start', String(element.startTime || 0)); url.searchParams.set('enablejsapi', '1'); if (element.loop) { url.searchParams.set('loop', '1'); url.searchParams.set('playlist', url.pathname.split('/').pop()); } }
+        else if (element.provider === 'rutube') { url.searchParams.set('t', String(element.startTime || 0)); if (element.autoplay) url.searchParams.set('autoplay', '1'); }
+        else if (element.autoplay) url.searchParams.set('autoplay', '1');
+        const frame = document.createElement('iframe'); frame.src = url.toString(); frame.title = 'Видео слайда'; frame.allow = 'autoplay; fullscreen; encrypted-media; picture-in-picture'; frame.allowFullscreen = true; frame.referrerPolicy = 'strict-origin-when-cross-origin'; frame.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation'); object.append(frame);
+      }
     } else {
       object.textContent = element.text;
       object.style.color = element.color;
@@ -28,33 +41,35 @@ window.renderSlideElements = function renderSlideElements(slide, { editable = fa
     }
     if (editable) {
       object.tabIndex = 0;
-      object.setAttribute('aria-label', `Элемент ${index + 1}: ${element.type === 'text' ? element.text : element.type === 'image' ? 'изображение' : 'фигура'}`);
+      object.setAttribute('aria-label', `Элемент ${index + 1}: ${element.type === 'text' ? element.text : element.type === 'image' ? 'изображение' : element.type === 'video' ? 'видео' : 'фигура'}`);
       object.addEventListener('click', () => onSelect(index));
-      const handle = document.createElement('span'); handle.className = 'resize-handle'; handle.setAttribute('aria-label', 'Изменить размер'); object.append(handle);
+      for (const corner of ['nw', 'ne', 'sw', 'se']) { const handle = document.createElement('span'); handle.className = `resize-handle resize-${corner}`; handle.dataset.corner = corner; handle.setAttribute('aria-label', 'Изменить размер'); object.append(handle); }
       object.addEventListener('pointerdown', (event) => {
-        event.preventDefault(); onSelect(index);
-        const resize = event.target === handle;
+        event.preventDefault(); object.focus({ preventScroll: true }); onSelect(index);
+        const corner = event.target.dataset?.corner;
         const startX = event.clientX, startY = event.clientY;
         const start = { x: element.x, y: element.y, w: element.w, h: element.h };
+        let moved = false;
         object.setPointerCapture(event.pointerId);
         const move = (next) => {
+          moved = true;
           const rect = surface.getBoundingClientRect();
           const dx = (next.clientX - startX) * 100 / rect.width;
           const dy = (next.clientY - startY) * 100 / rect.height;
-          if (resize) {
-            element.w = Math.max(5, Math.min(100 - element.x, Math.round(start.w + dx)));
-            element.h = Math.max(5, Math.min(100 - element.y, Math.round(start.h + dy)));
+          if (corner) {
+            Object.assign(element, window.editorSlideTools.resizeElement(start, dx, dy, corner, ['image', 'video'].includes(element.type) && element.lockAspect !== false && !next.shiftKey));
           } else {
             element.x = Math.max(0, Math.min(100 - element.w, Math.round(start.x + dx)));
             element.y = Math.max(0, Math.min(100 - element.h, Math.round(start.y + dy)));
           }
           position();
         };
-        const finish = () => { object.removeEventListener('pointermove', move); object.removeEventListener('pointerup', finish); object.removeEventListener('pointercancel', finish); onChange(); };
+        const finish = () => { object.removeEventListener('pointermove', move); object.removeEventListener('pointerup', finish); object.removeEventListener('pointercancel', finish); if (moved) onChange(); };
         object.addEventListener('pointermove', move);
         object.addEventListener('pointerup', finish);
         object.addEventListener('pointercancel', finish);
       });
+      object.addEventListener('keydown', (event) => { const delta = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key]; if (!delta) return; event.preventDefault(); element.x = Math.max(0, Math.min(100 - element.w, element.x + delta[0] * (event.shiftKey ? 5 : 1))); element.y = Math.max(0, Math.min(100 - element.h, element.y + delta[1] * (event.shiftKey ? 5 : 1))); position(); onChange(); });
     }
     surface.append(object);
   });

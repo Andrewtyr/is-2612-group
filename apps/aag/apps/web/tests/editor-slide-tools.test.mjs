@@ -54,3 +54,14 @@ test('adding different question types keeps their creation order', async () => {
   assert.equal(Array.from(result.slides, (slide) => slide.title).join(','), 'Начало,Вопрос 1,Вопрос 2');
   assert.equal(slides.length, 2);
 });
+
+test('media resizing preserves proportions and stays inside the slide', async () => {
+  const { resizeElement } = await tools();
+  const start = { x: 20, y: 20, w: 40, h: 30 };
+  const resized = resizeElement(start, 100, 100, 'se', true);
+  assert.ok(Math.abs(resized.w / resized.h - 4 / 3) < .001);
+  assert.ok(resized.x + resized.w <= 100 && resized.y + resized.h <= 100);
+  const northwest = resizeElement(start, -100, -100, 'nw', true);
+  assert.ok(northwest.x >= 0 && northwest.y >= 0);
+  assert.equal(northwest.x + northwest.w, 60);
+});

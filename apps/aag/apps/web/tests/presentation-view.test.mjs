@@ -35,3 +35,11 @@ test('score visibility defaults to off for polls and can be set per slide', () =
   assert.equal(view.showPointsOnSlide({ type: 'quiz', showPoints: false }), false);
   assert.equal(view.showPointsOnSlide({ type: 'poll', showPoints: true }), true);
 });
+
+test('projector keeps the same video slide while live counters update', () => {
+  const view = load('presentation-view.js');
+  const data = { event: { slideIndex: 2 }, slide: { type: 'content', title: 'Видео', elements: [{ type: 'video', assetId: 'asset' }] }, answerCount: 1 };
+  assert.equal(view.projectorRenderKey(data), view.projectorRenderKey({ ...data, answerCount: 3 }));
+  assert.notEqual(view.projectorRenderKey(data), view.projectorRenderKey({ ...data, event: { slideIndex: 3 } }));
+  assert.ok(view.projectorTypography({ title: 'Вопрос'.repeat(30), options: Array(6).fill('Длинный вариант '.repeat(15)) }).options < view.projectorTypography({ title: 'Вопрос', options: ['Да', 'Нет'] }).options);
+});

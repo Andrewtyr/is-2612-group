@@ -4,6 +4,8 @@ import { stat } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { resolve, sep, extname } from 'node:path';
 import QRCode from 'qrcode';
+import { sendAsset } from './asset-response.mjs';
+import { normalizeVideoUrl } from './video-sources.mjs';
 
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml' };
 const json = (res, status, body) => { res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }); res.end(JSON.stringify(body)); };
@@ -32,7 +34,7 @@ export function createApiServer({ store, materialStore, liveStore, importStore, 
   const blocked = (key, limit) => { const entry = failures.get(key); if (!entry) return false; if (entry.until < Date.now()) { failures.delete(key); return false; } return entry.count >= limit; };
   const failed = (key) => { const entry = failures.get(key); failures.set(key, { count: (entry?.until > Date.now() ? entry.count : 0) + 1, until: Date.now() + 10 * 60_000 }); if (failures.size > 10_000) failures.delete(failures.keys().next().value); };
   return createServer(async (req, res) => {
-    res.setHeader('content-security-policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' blob: data:; connect-src 'self'; form-action 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
+    res.setHeader('content-security-policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' blob: data:; media-src 'self' blob:; frame-src https://www.youtube-nocookie.com https://rutube.ru https://vk.com; connect-src 'self'; form-action 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
     res.setHeader('x-content-type-options', 'nosniff');
     res.setHeader('x-frame-options', 'DENY');
     res.setHeader('referrer-policy', 'strict-origin-when-cross-origin');
@@ -64,18 +66,16 @@ export function createApiServer({ store, materialStore, liveStore, importStore, 
           return createReadStream(file).pipe(res);
         }
         const assetRoute = importStore && /^\/api\/assets\/([a-f0-9-]{36})$/.exec(path);
-        if (assetRoute && method === 'GET') {
+        if (assetRoute && ['GET', 'HEAD'].includes(method)) {
           const assetId = assetRoute[1];
           let allowed = session && ['admin', 'host'].includes(session.user.role) && importStore.ownsAsset(assetId, session.user.id);
           if (!allowed && liveStore && url.searchParams.has('event')) {
             const state = liveStore.getParticipant(Number(url.searchParams.get('event')), req.headers['x-participant-token']);
-            allowed = state.slide.elements?.some((element) => element.type === 'image' && element.assetId === assetId);
+            allowed = state.slide.elements?.some((element) => ['image', 'video'].includes(element.type) && element.assetId === assetId);
           }
           if (!allowed) error(403, 'Изображение недоступно.');
           const file = importStore.assetPath(assetId);
-          const metadata = await stat(file);
-          res.writeHead(200, { 'content-type': extname(file) === '.png' ? 'image/png' : 'image/jpeg', 'content-length': metadata.size, 'cache-control': 'private, max-age=300', 'x-content-type-options': 'nosniff' });
-          return createReadStream(file).pipe(res);
+          return await sendAsset(req, res, file);
         }
         if (liveStore && path === '/api/live/join' && method === 'POST') {
           const data = await body(req);
@@ -123,7 +123,12 @@ export function createApiServer({ store, materialStore, liveStore, importStore, 
         }
         if (importStore && path === '/api/assets' && method === 'POST') {
           if (!['admin', 'host'].includes(session.user.role)) error(403, 'Требуются права ведущего.');
-          return json(res, 201, { asset: await importStore.uploadImage(req, session.user.id) });
+          return json(res, 201, { asset: await importStore.uploadAsset(req, session.user.id) });
+        }
+        if (path === '/api/assets/video-link' && method === 'POST') {
+          if (!['admin', 'host'].includes(session.user.role)) error(403, 'Требуются права ведущего.');
+          const data = await body(req);
+          return json(res, 200, { video: normalizeVideoUrl(data.url) });
         }
         if (path === '/api/auth/logout' && method === 'POST') {
           store.revokeSession(token);
@@ -133,12 +138,12 @@ export function createApiServer({ store, materialStore, liveStore, importStore, 
         if (materialStore && path.startsWith('/api/materials')) {
           if (!['admin', 'host'].includes(session.user.role)) error(403, 'Требуются права ведущего.');
           if (path === '/api/materials' && method === 'GET') return json(res, 200, { materials: materialStore.list(session.user.id, url.searchParams.get('archived') === '1') });
-          if (path === '/api/materials' && method === 'POST') { const data = await body(req); if (data.slides?.some((slide) => slide.type === 'imported' || slide.elements?.some((element) => element.type === 'image')) && !importStore) error(400, 'Загрузка файлов недоступна.'); importStore?.verifySlides(data.slides, session.user.id); importStore?.verifyAssets(data.slides, session.user.id); return json(res, 201, { material: materialStore.create(data, session.user.id) }); }
+          if (path === '/api/materials' && method === 'POST') { const data = await body(req); if (data.slides?.some((slide) => slide.type === 'imported' || slide.elements?.some((element) => ['image', 'video'].includes(element.type))) && !importStore) error(400, 'Загрузка файлов недоступна.'); importStore?.verifySlides(data.slides, session.user.id); importStore?.verifyAssets(data.slides, session.user.id); return json(res, 201, { material: materialStore.create(data, session.user.id) }); }
           const match = /^\/api\/materials\/(\d+)$/.exec(path);
           if (match) {
             const id = Number(match[1]);
             if (method === 'GET') return json(res, 200, { material: materialStore.get(id, session.user.id) });
-            if (method === 'PUT') { const data = await body(req); if (data.slides?.some((slide) => slide.type === 'imported' || slide.elements?.some((element) => element.type === 'image')) && !importStore) error(400, 'Загрузка файлов недоступна.'); importStore?.verifySlides(data.slides, session.user.id); importStore?.verifyAssets(data.slides, session.user.id); return json(res, 200, { material: materialStore.update(id, data, session.user.id) }); }
+            if (method === 'PUT') { const data = await body(req); if (data.slides?.some((slide) => slide.type === 'imported' || slide.elements?.some((element) => ['image', 'video'].includes(element.type))) && !importStore) error(400, 'Загрузка файлов недоступна.'); importStore?.verifySlides(data.slides, session.user.id); importStore?.verifyAssets(data.slides, session.user.id); return json(res, 200, { material: materialStore.update(id, data, session.user.id) }); }
             if (method === 'DELETE') return json(res, 200, materialStore.remove(id, session.user.id));
           }
           const restore = /^\/api\/materials\/(\d+)\/restore$/.exec(path);

@@ -1,6 +1,5 @@
 window.statisticsChartMode = (slide) => slide.type === 'multi-quiz' ? 'column' : slide.statisticsChart === 'pie' ? 'pie' : 'bar';
-window.statisticsChartData = (labels, counts, respondents) => {
-  const palette = ['#087c44', '#d2a64a', '#4077bd', '#a76bc1', '#df7f5a', '#4fada9', '#7b8b52', '#c36b89', '#6964b5', '#a37751'];
+window.statisticsChartData = (labels, counts, respondents, palette = ['#087c44', '#d2a64a', '#4077bd', '#a76bc1', '#df7f5a', '#4fada9', '#7b8b52', '#c36b89', '#6964b5', '#a37751']) => {
   const total = counts.reduce((sum, count) => sum + Math.max(0, count), 0);
   const denominator = respondents ?? total;
   let cursor = 0;

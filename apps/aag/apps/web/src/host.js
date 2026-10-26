@@ -15,15 +15,18 @@ async function api(path, method = 'GET', data) {
 const setPanels = (panel) => { for (const id of ['login-panel', 'start-panel', 'host-panel']) $(id).hidden = id !== panel; };
 function appendSlide(parent, slide, aspectRatio = '16:9') {
   parent.replaceChildren();
+  const questionSlide = ['quiz', 'multi-quiz', 'poll', 'scale', 'text', 'word-cloud'].includes(slide.type);
+  parent.classList.toggle('question-media-stage', questionSlide && !!slide.elements?.length);
   window.applySlideAppearance(parent, slide, aspectRatio);
   if (slide.type === 'imported') { parent.append(window.renderSlideElements(slide, { aspectRatio })); return; }
-  if (slide.elements) { parent.append(window.renderSlideElements(slide, { aspectRatio })); return; }
+  if (slide.elements && !questionSlide) { parent.append(window.renderSlideElements(slide, { aspectRatio })); return; }
   const small = document.createElement('small'); small.textContent = slide.eyebrow;
   const title = document.createElement('h2'); title.textContent = slide.title;
   parent.append(small, title);
   if (slide.body) { const p = document.createElement('p'); p.textContent = slide.body; parent.append(p); }
   const values = slide.options ?? slide.bullets;
   if (values) { const list = document.createElement(slide.options ? 'ol' : 'ul'); for (const value of values) { const item = document.createElement('li'); item.textContent = value; list.append(item); } parent.append(list); }
+  if (questionSlide && slide.elements?.length) { const media = document.createElement('div'); media.className = 'question-media-preview'; media.append(window.renderSlideElements({ elements: slide.elements }, { aspectRatio })); parent.append(media); }
 }
 function render(data) {
   state = data; setPanels('host-panel');

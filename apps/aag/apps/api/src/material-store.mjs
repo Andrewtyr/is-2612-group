@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { normalizeVideoUrl } from './video-sources.mjs';
 
 const fail = (status, message) => { const issue = new Error(message); issue.status = status; throw issue; };
 const cleanText = (value, limit, required = false) => {
@@ -51,15 +52,15 @@ export function validateMaterial(input) {
       slide.page = item.page;
     }
     if (item.elements !== undefined) {
-      if (!['cover', 'content', 'closing', 'imported'].includes(type) || !Array.isArray(item.elements) || item.elements.length > 40) fail(400, 'На слайде может быть не более 40 элементов.');
+      if (!Array.isArray(item.elements) || item.elements.length > 40) fail(400, 'На слайде может быть не более 40 элементов.');
       slide.elements = item.elements.map((element) => {
-        if (!element || !['text', 'shape', 'image'].includes(element.type)) fail(400, 'Недопустимый элемент слайда.');
+        if (!element || !['text', 'shape', 'image', 'video'].includes(element.type)) fail(400, 'Недопустимый элемент слайда.');
+        if (questionType && !['image', 'video'].includes(element.type)) fail(400, 'В вопрос можно добавить изображение или видео.');
         let id = {};
         if (element.id !== undefined) {
           if (typeof element.id !== 'string' || !/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(element.id)) fail(400, 'Некорректный идентификатор элемента.');
           id = { id: element.id };
         }
-        if (type === 'imported' && element.type === 'image') fail(400, 'Поверх импортированного слайда можно добавить только надписи и фигуры.');
         const position = {};
         for (const key of ['x', 'y', 'w', 'h']) {
           const value = element[key];
@@ -67,9 +68,16 @@ export function validateMaterial(input) {
           position[key] = value;
         }
         if (position.w < 5 || position.h < 5 || position.x + position.w > 100 || position.y + position.h > 100) fail(400, 'Проверьте размер и положение элемента.');
-        if (element.type === 'image') {
-          if (typeof element.assetId !== 'string' || !/^[a-f0-9-]{36}$/.test(element.assetId)) fail(400, 'Некорректная ссылка на изображение.');
-          return { type: 'image', ...id, ...position, assetId: element.assetId };
+        if (['image', 'video'].includes(element.type)) {
+          const media = { type: element.type, ...id, ...position, rotation: boundedInt(element.rotation, -180, 180, 0), fit: element.fit ?? 'contain', focalX: boundedInt(element.focalX, 0, 100, 50), focalY: boundedInt(element.focalY, 0, 100, 50), lockAspect: element.lockAspect ?? true };
+          if (!['contain', 'cover'].includes(media.fit) || typeof media.lockAspect !== 'boolean') fail(400, 'Некорректные параметры медиа.');
+          if (element.type === 'video' && element.url) Object.assign(media, normalizeVideoUrl(element.url));
+          else { if (typeof element.assetId !== 'string' || !/^[a-f0-9-]{36}$/.test(element.assetId)) fail(400, 'Некорректная ссылка на медиафайл.'); media.assetId = element.assetId; }
+          if (element.type === 'video') {
+            for (const option of ['autoplay', 'muted', 'loop']) { if (element[option] !== undefined && typeof element[option] !== 'boolean') fail(400, 'Некорректные параметры видео.'); media[option] = element[option] ?? (option === 'muted'); }
+            media.startTime = boundedInt(element.startTime, 0, 36000, 0);
+          }
+          return media;
         }
         const color = element.color ?? '#17251c';
         if (typeof color !== 'string' || !/^#[0-9a-f]{6}$/i.test(color)) fail(400, 'Некорректный цвет элемента.');
