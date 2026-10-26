@@ -12,3 +12,5 @@ window.participantRenderKey = (data) => [
   data.question?.published,
   data.event.status,
 ].join(':');
+
+window.showPointsOnSlide = (slide) => slide.showPoints ?? ['quiz', 'multi-quiz', 'text'].includes(slide.type);

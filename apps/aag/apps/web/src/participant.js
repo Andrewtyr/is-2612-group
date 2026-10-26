@@ -55,7 +55,7 @@ function stage(slide) {
 function render(data) {
   state = data; $('join-panel').hidden = true; $('participant-panel').hidden = false;
   $('slide-number').textContent = `Слайд ${data.slideIndex + 1} / ${data.slideCount}`;
-  $('own-score').hidden = !data.event.ratingEnabled;
+  $('own-score').hidden = !data.event.ratingEnabled || !window.showPointsOnSlide(data.slide);
   $('own-score').textContent = data.question && !data.question.closed ? `Подтверждённые баллы: ${data.totalPoints} · за текущий вопрос появятся после закрытия` : `Ваши баллы: ${data.totalPoints}`;
   const key = window.participantRenderKey(data);
   if (key !== renderKey) {

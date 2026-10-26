@@ -4,6 +4,12 @@ const requestedMode = new URLSearchParams(location.search).get('mode') === 'full
 let fullscreenMessage = '';
 const make = (tag, value, className) => { const element = document.createElement(tag); element.textContent = value; if (className) element.className = className; return element; };
 const fullscreenButton = $('fullscreen-button');
+const connectionButton = $('connection-button');
+connectionButton.addEventListener('click', () => {
+  const panel = document.querySelector('.projector-connect');
+  panel.hidden = !panel.hidden;
+  connectionButton.textContent = panel.hidden ? 'Показать QR' : 'Скрыть QR';
+});
 const updateFullscreen = () => { fullscreenButton.textContent = document.fullscreenElement ? 'Выйти из полного экрана' : 'На весь экран'; $('fullscreen-hint').hidden = requestedMode !== 'fullscreen' || !!document.fullscreenElement; };
 fullscreenButton.addEventListener('click', async () => {
   try { if (document.fullscreenElement) await document.exitFullscreen(); else await document.documentElement.requestFullscreen(); fullscreenMessage = ''; $('message').textContent = ''; }
@@ -41,9 +47,10 @@ async function refresh() {
     const response = await fetch(`/aag/api/live/${eventId}/projector`, { credentials: 'same-origin' });
     const data = await response.json(); if (!response.ok) throw new Error(data.error);
     const box = $('slide');
-    window.applySlideAppearance(box, data.slide, data.aspectRatio);
-    if (data.slide.type === 'imported') box.replaceChildren(window.renderSlideElements(data.slide, { aspectRatio: data.aspectRatio }));
-    else if (data.slide.elements) box.replaceChildren(window.renderSlideElements(data.slide, { aspectRatio: data.aspectRatio }));
+    box.classList.toggle('projector-element-slide', data.slide.type === 'imported' || !!data.slide.elements);
+    window.applySlideAppearance(box, data.slide, '16:9');
+    if (data.slide.type === 'imported') box.replaceChildren(window.renderSlideElements(data.slide, { aspectRatio: '16:9' }));
+    else if (data.slide.elements) box.replaceChildren(window.renderSlideElements(data.slide, { aspectRatio: '16:9' }));
     else {
       box.replaceChildren(make('small', data.slide.eyebrow || 'ЗАНЯТИЕ ИЛИ МЕРОПРИЯТИЕ'), make('h1', data.slide.title));
       if (data.slide.body) box.append(make('p', data.slide.body));

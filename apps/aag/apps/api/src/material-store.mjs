@@ -37,6 +37,10 @@ export function validateMaterial(input) {
       if (!questionType || typeof item.showStatistics !== 'boolean') fail(400, 'Некорректная настройка статистики.');
       slide.showStatistics = item.showStatistics;
     }
+    if (item.showPoints !== undefined) {
+      if (!questionType || typeof item.showPoints !== 'boolean') fail(400, 'Некорректная настройка баллов.');
+      slide.showPoints = item.showPoints;
+    }
     if (['cover', 'content', 'closing'].includes(type) && item.background !== undefined) {
       if (typeof item.background !== 'string' || !/^#[0-9a-f]{6}$/i.test(item.background)) fail(400, 'Некорректный фон слайда.');
       slide.background = item.background;

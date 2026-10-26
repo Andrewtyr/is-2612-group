@@ -27,3 +27,11 @@ test('participant view changes when the host closes a question', () => {
   const data = { slideIndex: 1, question: { deadline: 1234, closed: false }, answered: false, event: { status: 'active' } };
   assert.notEqual(view.participantRenderKey(data), view.participantRenderKey({ ...data, question: { ...data.question, closed: true } }));
 });
+
+test('score visibility defaults to off for polls and can be set per slide', () => {
+  const view = load('presentation-view.js');
+  assert.equal(view.showPointsOnSlide({ type: 'poll' }), false);
+  assert.equal(view.showPointsOnSlide({ type: 'quiz' }), true);
+  assert.equal(view.showPointsOnSlide({ type: 'quiz', showPoints: false }), false);
+  assert.equal(view.showPointsOnSlide({ type: 'poll', showPoints: true }), true);
+});
