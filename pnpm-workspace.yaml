@@ -1,5 +1,6 @@
 packages:
   - apps/*
+  - '!apps/aag'
   - packages/*
 allowBuilds:
   '@prisma/client': true

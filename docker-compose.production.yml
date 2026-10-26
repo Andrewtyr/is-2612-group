@@ -55,6 +55,27 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  aag:
+    build:
+      context: ./apps/aag
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 4180
+      NODE_ENV: production
+      TRUST_PROXY: '1'
+      PUBLIC_BASE_URL: https://is2612.ru/aag/
+      AAG_DB_PATH: /data/aag.sqlite
+      AAG_UPLOAD_DIR: /data/uploads
+      AAG_BACKUP_DIR: /data/backups
+    volumes:
+      - aag_data:/data
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:4180/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
   web:
     build:
       context: .
@@ -65,8 +86,11 @@ services:
         condition: service_started
       cyber-safe:
         condition: service_healthy
+      aag:
+        condition: service_healthy
     ports:
       - '127.0.0.1:3000:3000'
 volumes:
   postgres_data:
   cyber_safe_data:
+  aag_data:

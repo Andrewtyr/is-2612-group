@@ -161,6 +161,10 @@ export default function Home() {
             <strong>Играть в CYBER SAFE 3.0 ↗</strong>
             <span>Открыто для гостей без входа в аккаунт</span>
           </a>
+          <a className="cyber-safe-entry" href="/aag">
+            <strong>ААГ Интерактив ↗</strong>
+            <span>Участие в занятии по коду без входа</span>
+          </a>
         </section>
       </main>
     );

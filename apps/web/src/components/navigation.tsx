@@ -77,6 +77,7 @@ export default function Navigation() {
     { href: '/notifications', label: 'Уведомления', icon: 'bell' },
     { href: '/attendance', label: 'Посещаемость', icon: 'chart' },
     { href: '/cyber-safe', label: 'Игра CYBER SAFE', icon: 'game' },
+    { href: '/aag', label: 'ААГ Интерактив', icon: 'game' },
     ...(['HEAD', 'DEPUTY'].includes(user.role)
       ? [{ href: '/grades', label: 'Мои оценки', icon: 'book' }]
       : []),
@@ -97,7 +98,7 @@ export default function Navigation() {
         <span>{link.label}</span>
       </>
     );
-    return link.href === '/cyber-safe' ? (
+    return ['/cyber-safe', '/aag'].includes(link.href) ? (
       <a key={link.href} href={link.href}>
         {content}
       </a>

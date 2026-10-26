@@ -9,6 +9,7 @@ RUN pnpm install --frozen-lockfile
 COPY apps/web apps/web
 ENV API_INTERNAL_URL=http://api:4000
 ENV CYBER_SAFE_INTERNAL_URL=http://cyber-safe:8000
+ENV AAG_INTERNAL_URL=http://aag:4180
 RUN pnpm --filter @group/web build
 EXPOSE 3000
 CMD ["pnpm", "--filter", "@group/web", "start"]
