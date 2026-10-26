@@ -45,3 +45,12 @@ test('changing a simple slide layout keeps its content', async () => {
   assert.equal(content.body, 'Начало');
   assert.deepEqual(Array.from(content.bullets), []);
 });
+
+test('adding different question types keeps their creation order', async () => {
+  const { insertQuestion } = await tools();
+  const slides = [{ type: 'cover', title: 'Начало' }, { type: 'quiz', title: 'Вопрос 1' }];
+  const result = insertQuestion(slides, 1, 0, { type: 'poll', title: 'Вопрос 2' });
+  assert.equal(result.index, 2);
+  assert.equal(Array.from(result.slides, (slide) => slide.title).join(','), 'Начало,Вопрос 1,Вопрос 2');
+  assert.equal(slides.length, 2);
+});

@@ -25,6 +25,10 @@ function renderStatistics(slide, statistics) {
   const labels = slide.options ?? statistics.counts.map((_, index) => String(index + 1));
   const chart = window.statisticsChartData(labels, statistics.counts, slide.type === 'multi-quiz' ? statistics.total : undefined);
   const chartMode = window.statisticsChartMode(slide);
+  if (chartMode === 'column') {
+    panel.append(window.renderStatisticsColumns(chart.rows));
+    return panel;
+  }
   if (chartMode === 'pie') {
     const pie = document.createElement('div'); pie.className = 'statistics-pie'; pie.style.background = chart.gradient;
     pie.setAttribute('role', 'img'); pie.setAttribute('aria-label', chart.rows.map((row) => `${row.label}: ${row.count}`).join(', '));

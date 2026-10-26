@@ -1,4 +1,11 @@
 window.editorSlideTools = {
+  insertQuestion(slides, selectedIndex, presentationAnchor, question) {
+    const questionTypes = ['quiz', 'multi-quiz', 'poll', 'scale', 'text', 'word-cloud'];
+    const anchor = questionTypes.includes(slides[selectedIndex]?.type) ? selectedIndex : Math.min(presentationAnchor, slides.length - 1);
+    const next = [...slides];
+    next.splice(anchor + 1, 0, question);
+    return { slides: next, index: anchor + 1 };
+  },
   duplicateSlide(slide) {
     const copy = structuredClone(slide);
     for (const element of copy.elements ?? []) element.id = crypto.randomUUID();

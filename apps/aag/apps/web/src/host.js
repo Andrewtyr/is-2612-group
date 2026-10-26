@@ -71,14 +71,7 @@ function render(data) {
     if (slide.type === 'multi-quiz') {
       summary.append(makeSummary('Доля ответивших по каждому варианту', ''));
       const chart = window.statisticsChartData(slide.options, counts, data.answers.length);
-      chart.rows.forEach((entry) => {
-        const row = document.createElement('div'); row.className = 'host-statistics-row';
-        const label = document.createElement('span'); label.textContent = entry.label;
-        const value = document.createElement('strong'); value.textContent = `${entry.count} · ${entry.percent}%`;
-        const track = document.createElement('div'); track.className = 'host-statistics-track';
-        const fill = document.createElement('span'); fill.style.width = `${entry.percent}%`; fill.style.backgroundColor = entry.color;
-        track.append(fill); row.append(label, value, track); summary.append(row);
-      });
+      summary.append(window.renderStatisticsColumns(chart.rows));
     } else counts.forEach((count, index) => summary.append(makeSummary(slide.options?.[index] ?? String(index + 1), count)));
   }
   if (!data.answers.length) answers.textContent = 'Пока нет ответов.';

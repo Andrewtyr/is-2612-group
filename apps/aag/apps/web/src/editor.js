@@ -136,7 +136,7 @@ function renderFields() {
   if (['quiz', 'multi-quiz', 'poll', 'scale'].includes(slide.type)) {
     const setting = document.createElement('label'); setting.textContent = 'Диаграмма результатов';
     const select = document.createElement('select');
-    const chartOptions = slide.type === 'multi-quiz' ? [['bar', 'Столбцы (% ответивших)']] : [['bar', 'Столбцы'], ['pie', 'Круговая']];
+    const chartOptions = slide.type === 'multi-quiz' ? [['bar', 'Вертикальные столбцы (% ответивших)']] : [['bar', 'Столбцы'], ['pie', 'Круговая']];
     for (const [value, label] of chartOptions) { const option = document.createElement('option'); option.value = value; option.textContent = label; select.append(option); }
     select.value = slide.type === 'multi-quiz' ? 'bar' : slide.statisticsChart || 'bar';
     select.addEventListener('change', () => { slide.statisticsChart = select.value; changed(); });
@@ -204,10 +204,10 @@ $('presentation-tab').addEventListener('click', () => setTab('presentation'));
 $('interactive-tab').addEventListener('click', () => setTab('interactive'));
 document.querySelector('[data-add="content"]').addEventListener('click', () => { if (material.slides.length >= 150) return; material.slides.splice(selected + 1, 0, { type: 'content', title: 'Новый слайд', bullets: [] }); selected++; selectedElement = -1; changed(); render(); });
 function makeQuestion(type) {
-  const common = { type, title: 'Новый вопрос', timeSeconds: 30, showStatistics: type === 'poll', showPoints: ['quiz', 'multi-quiz', 'text'].includes(type) };
+  const common = { type, title: 'Новый вопрос', timeSeconds: 30, showStatistics: ['poll', 'multi-quiz'].includes(type), showPoints: ['quiz', 'multi-quiz', 'text'].includes(type) };
   return type === 'quiz' ? { ...common, options: ['Вариант 1', 'Вариант 2'], correctIndex: 0, points: 100, speedBonusPercent: 0 } : type === 'multi-quiz' ? { ...common, options: ['Вариант 1', 'Вариант 2', 'Вариант 3'], correctIndices: [0, 2], points: 100, speedBonusPercent: 0 } : type === 'poll' ? { ...common, options: ['Да', 'Нет'] } : type === 'scale' ? { ...common, maxValue: 5 } : type === 'word-cloud' ? { ...common, title: 'Какие слова приходят вам на ум?', timeSeconds: 45 } : { ...common, points: 0 };
 }
-$('add-question').addEventListener('click', () => { if (material.slides.length >= 150) return message('В материале может быть не более 150 слайдов.'); const anchor = Math.min(lastPresentationSlide, material.slides.length - 1); material.slides.splice(anchor + 1, 0, makeQuestion($('question-type').value)); selected = anchor + 1; selectedElement = -1; changed(); render(); });
+$('add-question').addEventListener('click', () => { if (material.slides.length >= 150) return message('В материале может быть не более 150 слайдов.'); const result = window.editorSlideTools.insertQuestion(material.slides, selected, lastPresentationSlide, makeQuestion($('question-type').value)); material.slides = result.slides; selected = result.index; selectedElement = -1; changed(); render(); });
 function ensureElements() {
   const slide = current();
   if (slide.elements) return slide.elements;

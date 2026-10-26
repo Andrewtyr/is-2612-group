@@ -24,6 +24,6 @@ test('word cloud appears on the current projector slide while answers are open',
     assert.deepEqual(live.getProjector(event.id, 1).wordCloud, []);
   } finally {
     live.close();
-    rmSync(directory, { recursive: true, force: true });
+    rmSync(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });

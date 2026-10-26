@@ -19,6 +19,6 @@ test('a poll displays its running results on the current projector slide', () =>
     assert.deepEqual(display.statistics, { total: 1, counts: [1, 0] });
   } finally {
     live.close();
-    rmSync(directory, { recursive: true, force: true });
+    rmSync(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });
