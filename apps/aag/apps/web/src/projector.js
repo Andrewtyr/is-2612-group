@@ -14,19 +14,20 @@ document.addEventListener('fullscreenchange', updateFullscreen);
 updateFullscreen();
 function renderStatistics(slide, statistics) {
   const panel = document.createElement('aside'); panel.className = 'projector-statistics';
-  panel.append(make('h2', 'Результаты ответов'), make('p', `Ответили: ${statistics.total}`));
+  panel.append(make('h2', 'Результаты ответов'), make('p', slide.type === 'multi-quiz' ? `Ответили: ${statistics.total} · можно выбрать несколько вариантов` : `Ответили: ${statistics.total}`));
   if (!statistics.counts.length) return panel;
   const labels = slide.options ?? statistics.counts.map((_, index) => String(index + 1));
-  const chart = window.statisticsChartData(labels, statistics.counts);
-  if (slide.statisticsChart === 'pie') {
+  const chart = window.statisticsChartData(labels, statistics.counts, slide.type === 'multi-quiz' ? statistics.total : undefined);
+  const chartMode = window.statisticsChartMode(slide);
+  if (chartMode === 'pie') {
     const pie = document.createElement('div'); pie.className = 'statistics-pie'; pie.style.background = chart.gradient;
     pie.setAttribute('role', 'img'); pie.setAttribute('aria-label', chart.rows.map((row) => `${row.label}: ${row.count}`).join(', '));
     panel.append(pie);
   }
   chart.rows.forEach((entry) => {
     const row = document.createElement('div'); row.className = 'statistics-row';
-    row.append(make('span', entry.label), make('strong', String(entry.count)));
-    if (slide.statisticsChart !== 'pie') {
+    row.append(make('span', entry.label), make('strong', `${entry.count} · ${entry.percent}%`));
+    if (chartMode !== 'pie') {
       const track = document.createElement('div'); track.className = 'statistics-track';
       const fill = document.createElement('span'); fill.style.width = `${entry.percent}%`; fill.style.background = entry.color; track.append(fill); row.append(track);
     }

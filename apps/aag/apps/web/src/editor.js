@@ -136,8 +136,9 @@ function renderFields() {
   if (['quiz', 'multi-quiz', 'poll', 'scale'].includes(slide.type)) {
     const setting = document.createElement('label'); setting.textContent = 'Диаграмма результатов';
     const select = document.createElement('select');
-    for (const [value, label] of [['bar', 'Столбцы'], ['pie', 'Круговая']]) { const option = document.createElement('option'); option.value = value; option.textContent = label; select.append(option); }
-    select.value = slide.statisticsChart || 'bar';
+    const chartOptions = slide.type === 'multi-quiz' ? [['bar', 'Столбцы (% ответивших)']] : [['bar', 'Столбцы'], ['pie', 'Круговая']];
+    for (const [value, label] of chartOptions) { const option = document.createElement('option'); option.value = value; option.textContent = label; select.append(option); }
+    select.value = slide.type === 'multi-quiz' ? 'bar' : slide.statisticsChart || 'bar';
     select.addEventListener('change', () => { slide.statisticsChart = select.value; changed(); });
     setting.append(select); box.append(setting);
   }

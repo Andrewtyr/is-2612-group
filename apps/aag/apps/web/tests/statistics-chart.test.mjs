@@ -13,3 +13,11 @@ test('statistics chart computes bars and pie sectors without exposing answer key
   assert.match(chart.gradient, /75%/);
   assert.equal(context.window.statisticsChartData(['А'], [0]).rows[0].percent, 0);
 });
+
+test('multi-choice bars show the share of respondents for each option', () => {
+  vm.runInNewContext(readFileSync(resolve('src/statistics-chart.js'), 'utf8'), context);
+  const chart = context.window.statisticsChartData(['Первый', 'Второй'], [2, 2], 3);
+  assert.equal(chart.rows[0].percent, 67);
+  assert.equal(chart.rows[1].percent, 67);
+  assert.equal(context.window.statisticsChartMode({ type: 'multi-quiz', statisticsChart: 'pie' }), 'bar');
+});
