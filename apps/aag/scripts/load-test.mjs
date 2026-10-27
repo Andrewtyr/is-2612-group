@@ -65,15 +65,21 @@ try {
     if (round + 1 < pollRounds) await new Promise((done) => setTimeout(done, 1500));
   }
   const pollSummary = summarize(polls, performance.now() - pollStarted);
+  const questionIndices = new Map();
   for (const event of events) {
-    requireSuccess(await request(`/api/live/${event.id}/slide`, { method: 'POST', data: { index: 3 }, ...auth }), 'Выбор вопроса');
+    let host = requireSuccess(await request(`/api/live/${event.id}/host`, auth), 'Просмотр слайда').body;
+    while (!['quiz', 'multi-quiz', 'poll'].includes(host.slide.type) && host.event.slideIndex + 1 < host.slideCount) {
+      host = requireSuccess(await request(`/api/live/${event.id}/slide`, { method: 'POST', data: { index: host.event.slideIndex + 1 }, ...auth }), 'Выбор вопроса').body;
+    }
+    if (!['quiz', 'multi-quiz', 'poll'].includes(host.slide.type)) throw new Error('В тестовом материале нет вопроса с вариантами.');
+    questionIndices.set(event.id, host.event.slideIndex);
     requireSuccess(await request(`/api/live/${event.id}/open`, { method: 'POST', data: {}, ...auth }), 'Открытие вопроса');
   }
   const answerStarted = performance.now();
   const answers = await Promise.all(members.map(async (item) => {
     const started = performance.now();
     for (let attempt = 0; attempt < 3; attempt++) {
-      const result = await request(`/api/live/${item.event.id}/respond`, { method: 'POST', data: { answer: 1, slideIndex: 3 }, token: item.token });
+      const result = await request(`/api/live/${item.event.id}/respond`, { method: 'POST', data: { answer: 1, slideIndex: questionIndices.get(item.event.id) }, token: item.token });
       if (result.ok || result.status !== 0 || attempt === 2) return { ...result, ms: performance.now() - started, attempts: attempt + 1 };
       await new Promise((done) => setTimeout(done, 150 + Math.random() * 300 * (attempt + 1)));
     }
