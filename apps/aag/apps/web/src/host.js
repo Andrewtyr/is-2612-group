@@ -57,6 +57,8 @@ function render(data) {
   $('close-question').hidden = !question || question.closed || event.status !== 'active';
   $('toggle-statistics').hidden = !['quiz', 'multi-quiz', 'poll', 'scale', 'text'].includes(slide.type) || event.status === 'ended';
   $('toggle-statistics').textContent = data.statisticsVisible ? 'Скрыть статистику' : 'Показать статистику';
+  $('statistics-placement').hidden = !['quiz', 'multi-quiz', 'poll', 'scale'].includes(slide.type) || event.status === 'ended';
+  $('statistics-placement').textContent = data.statisticsPlacement === 'center' ? 'Вернуть варианты · статистику справа' : 'Статистику по центру · скрыть варианты';
   $('publish-cloud').hidden = slide.type !== 'word-cloud' || !question?.closed || question.published || event.status !== 'active';
   $('pause-button').hidden = event.status === 'ended';
   $('pause-button').textContent = event.status === 'paused' ? 'Продолжить' : 'Пауза';
@@ -169,6 +171,12 @@ $('next').addEventListener('click', () => act(`/aag/api/live/${eventId}/slide`, 
 $('open-question').addEventListener('click', () => act(`/aag/api/live/${eventId}/open`));
 $('close-question').addEventListener('click', () => act(`/aag/api/live/${eventId}/close`));
 $('toggle-statistics').addEventListener('click', () => act(`/aag/api/live/${eventId}/statistics`, { show: !state.statisticsVisible }));
+$('statistics-placement').addEventListener('click', async () => {
+  try {
+    if (!state.statisticsVisible) await api(`/aag/api/live/${eventId}/statistics`, 'POST', { show: true });
+    await act(`/aag/api/live/${eventId}/statistics-placement`, { placement: state.statisticsPlacement === 'center' ? 'side' : 'center' });
+  } catch (issue) { message(issue.message); }
+});
 $('publish-cloud').addEventListener('click', () => act(`/aag/api/live/${eventId}/publish`));
 $('pause-button').addEventListener('click', () => act(`/aag/api/live/${eventId}/${state.event.status === 'paused' ? 'resume' : 'pause'}`));
 $('joins-button').addEventListener('click', () => act(`/aag/api/live/${eventId}/joins`, { open: !state.event.joinsOpen }));

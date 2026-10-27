@@ -29,6 +29,7 @@ export function createLiveStore(path, material, now = () => Date.now(), { maxPar
     CREATE TABLE IF NOT EXISTS live_participants (id INTEGER PRIMARY KEY, event_id INTEGER NOT NULL REFERENCES live_events(id), name TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS live_questions (event_id INTEGER NOT NULL REFERENCES live_events(id), slide_index INTEGER NOT NULL, opened_at INTEGER NOT NULL, deadline INTEGER NOT NULL, closed_at INTEGER, published INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(event_id,slide_index));
     CREATE TABLE IF NOT EXISTS live_statistics_visibility (event_id INTEGER NOT NULL REFERENCES live_events(id), slide_index INTEGER NOT NULL, visible INTEGER NOT NULL, PRIMARY KEY(event_id,slide_index));
+    CREATE TABLE IF NOT EXISTS live_statistics_placement (event_id INTEGER NOT NULL REFERENCES live_events(id), slide_index INTEGER NOT NULL, placement TEXT NOT NULL, PRIMARY KEY(event_id,slide_index));
     CREATE TABLE IF NOT EXISTS live_responses (id INTEGER PRIMARY KEY, event_id INTEGER NOT NULL REFERENCES live_events(id), slide_index INTEGER NOT NULL, participant_id INTEGER NOT NULL REFERENCES live_participants(id), answer TEXT NOT NULL, normalized TEXT, points INTEGER NOT NULL DEFAULT 0, submitted_at INTEGER NOT NULL, hidden INTEGER NOT NULL DEFAULT 0, UNIQUE(event_id,slide_index,participant_id));
     CREATE INDEX IF NOT EXISTS live_participants_event_idx ON live_participants(event_id);
     CREATE INDEX IF NOT EXISTS live_responses_participant_idx ON live_responses(participant_id);
@@ -66,6 +67,7 @@ export function createLiveStore(path, material, now = () => Date.now(), { maxPar
     if (q) return !!q.statistics_visible;
     return !!(db.prepare('SELECT visible FROM live_statistics_visibility WHERE event_id=? AND slide_index=?').get(id, index)?.visible ?? 1);
   };
+  const statisticsPlacement = (id, index, slide) => db.prepare('SELECT placement FROM live_statistics_placement WHERE event_id=? AND slide_index=?').get(id, index)?.placement ?? slide.statisticsPlacement;
   const publicEvent = (row) => ({ id: row.id, code: row.code, slideIndex: row.slide_index, status: row.status, pausedAt: row.paused_at, materialTitle: materialFor(row).title, title: row.title || materialFor(row).title, format: row.format, category: row.category || '', ratingEnabled: !!row.rating_enabled, leaderboardPublished: !!row.leaderboard_published, joinsOpen: !!row.joins_open });
   const cloud = (id, index) => db.prepare('SELECT normalized AS text, count(*) AS count FROM live_responses WHERE event_id=? AND slide_index=? AND hidden=0 GROUP BY normalized ORDER BY count DESC, normalized').all(id, index);
   const statisticsFor = (id, index, slide) => {
@@ -141,6 +143,15 @@ export function createLiveStore(path, material, now = () => Date.now(), { maxPar
       if (!['quiz', 'multi-quiz', 'poll', 'scale', 'text'].includes(slide.type)) fail(409, 'На этом слайде нет статистики ответов.');
       db.prepare('INSERT INTO live_statistics_visibility(event_id,slide_index,visible) VALUES(?,?,?) ON CONFLICT(event_id,slide_index) DO UPDATE SET visible=excluded.visible').run(id, row.slide_index, show ? 1 : 0);
       db.prepare('UPDATE live_questions SET statistics_visible=? WHERE event_id=? AND slide_index=?').run(show ? 1 : 0, id, row.slide_index);
+      return this.getHost(id, hostId);
+    },
+    setStatisticsPlacement(id, hostId, placement) {
+      const row = hostEvent(id, hostId);
+      if (row.status === 'ended') fail(409, 'Сессия завершена.');
+      if (!['side', 'center'].includes(placement)) fail(400, 'Выберите положение статистики.');
+      const slide = materialFor(row).slides[row.slide_index];
+      if (!['quiz', 'multi-quiz', 'poll', 'scale', 'text'].includes(slide.type)) fail(409, 'На этом слайде нет статистики ответов.');
+      db.prepare('INSERT INTO live_statistics_placement(event_id,slide_index,placement) VALUES(?,?,?) ON CONFLICT(event_id,slide_index) DO UPDATE SET placement=excluded.placement').run(id, row.slide_index, placement);
       return this.getHost(id, hostId);
     },
     closeQuestion(id, hostId) {
@@ -267,14 +278,14 @@ export function createLiveStore(path, material, now = () => Date.now(), { maxPar
       const q = question(id, row.slide_index);
       const answers = db.prepare('SELECT r.id,p.name,r.answer,r.normalized,r.points,r.hidden,r.graded_at FROM live_responses r JOIN live_participants p ON p.id=r.participant_id WHERE r.event_id=? AND r.slide_index=? ORDER BY r.id').all(id, row.slide_index);
       const leaderboard = row.rating_enabled ? leaderboardFor(id) : [];
-      return { event: publicEvent(row), sessionStartedAt: row.created_at, slide, nextSlide: eventMaterial.slides[row.slide_index + 1] ?? null, aspectRatio: eventMaterial.aspectRatio || '16:9', question: q && { openedAt: q.opened_at, deadline: q.deadline, closed: !!q.closed_at || q.deadline <= (row.paused_at ?? now()), published: !!q.published }, statisticsVisible: statisticsVisible(id, row.slide_index, q), answers, wordCloud: slide.type === 'word-cloud' ? cloud(id, row.slide_index) : [], participantCount: db.prepare('SELECT count(*) AS n FROM live_participants WHERE event_id=?').get(id).n, leaderboard, slideCount: eventMaterial.slides.length };
+      return { event: publicEvent(row), sessionStartedAt: row.created_at, slide, nextSlide: eventMaterial.slides[row.slide_index + 1] ?? null, aspectRatio: eventMaterial.aspectRatio || '16:9', question: q && { openedAt: q.opened_at, deadline: q.deadline, closed: !!q.closed_at || q.deadline <= (row.paused_at ?? now()), published: !!q.published }, statisticsVisible: statisticsVisible(id, row.slide_index, q), statisticsPlacement: statisticsPlacement(id, row.slide_index, slide), answers, wordCloud: slide.type === 'word-cloud' ? cloud(id, row.slide_index) : [], participantCount: db.prepare('SELECT count(*) AS n FROM live_participants WHERE event_id=?').get(id).n, leaderboard, slideCount: eventMaterial.slides.length };
     },
     getProjector(id, hostId) {
       const row = hostEvent(id, hostId);
       const eventMaterial = materialFor(row);
       const { correctIndex, correctIndices, note, ...slide } = eventMaterial.slides[row.slide_index];
       const q = question(id, row.slide_index);
-      return { event: publicEvent(row), slide, aspectRatio: eventMaterial.aspectRatio || '16:9', slideCount: eventMaterial.slides.length, participantCount: db.prepare('SELECT count(*) AS n FROM live_participants WHERE event_id=?').get(id).n, answerCount: q ? db.prepare('SELECT count(*) AS n FROM live_responses WHERE event_id=? AND slide_index=?').get(id, row.slide_index).n : 0, question: q && { deadline: q.deadline, closed: !!q.closed_at || q.deadline <= (row.paused_at ?? now()) }, statistics: statisticsVisible(id, row.slide_index, q) && ['quiz', 'multi-quiz', 'poll', 'scale', 'text'].includes(slide.type) ? statisticsFor(id, row.slide_index, slide) : null, wordCloud: slide.type === 'word-cloud' && q ? cloud(id, row.slide_index) : [], leaderboard: row.rating_enabled && row.leaderboard_published ? leaderboardFor(id, 5) : [] };
+      return { event: publicEvent(row), slide: { ...slide, statisticsPlacement: statisticsPlacement(id, row.slide_index, slide) }, aspectRatio: eventMaterial.aspectRatio || '16:9', slideCount: eventMaterial.slides.length, participantCount: db.prepare('SELECT count(*) AS n FROM live_participants WHERE event_id=?').get(id).n, answerCount: q ? db.prepare('SELECT count(*) AS n FROM live_responses WHERE event_id=? AND slide_index=?').get(id, row.slide_index).n : 0, question: q && { deadline: q.deadline, closed: !!q.closed_at || q.deadline <= (row.paused_at ?? now()) }, statistics: statisticsVisible(id, row.slide_index, q) && ['quiz', 'multi-quiz', 'poll', 'scale', 'text'].includes(slide.type) ? statisticsFor(id, row.slide_index, slide) : null, wordCloud: slide.type === 'word-cloud' && q ? cloud(id, row.slide_index) : [], leaderboard: row.rating_enabled && row.leaderboard_published ? leaderboardFor(id, 5) : [] };
     },
     getParticipant(id, token) {
       const row = event(id); const person = participant(id, token);

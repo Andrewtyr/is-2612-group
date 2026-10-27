@@ -42,6 +42,30 @@ test('a poll displays its running results on the current projector slide', () =>
   }
 });
 
+test('host can center live statistics on an already running question without changing other slides', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'aag-live-layout-'));
+  const path = join(directory, 'aag.sqlite');
+  const material = { title: 'Опрос', slides: [
+    { type: 'poll', title: 'Первый', options: ['Да', 'Нет'] },
+    { type: 'poll', title: 'Второй', options: ['Да', 'Нет'] },
+  ] };
+  let live = createLiveStore(path, material, () => 1000, { bannedWordsPath: join(directory, 'words.txt') });
+  try {
+    const event = live.start(1);
+    assert.equal(live.getProjector(event.id, 1).slide.statisticsPlacement, undefined);
+    live.setStatisticsPlacement(event.id, 1, 'center');
+    assert.equal(live.getProjector(event.id, 1).slide.statisticsPlacement, 'center');
+    live.setSlide(event.id, 1, 1);
+    assert.equal(live.getProjector(event.id, 1).slide.statisticsPlacement, undefined);
+    live.close();
+    live = createLiveStore(path, material, () => 1000, { bannedWordsPath: join(directory, 'words.txt') });
+    live.setSlide(event.id, 1, 0);
+    assert.equal(live.getHost(event.id, 1).statisticsPlacement, 'center');
+    assert.throws(() => live.setStatisticsPlacement(event.id, 2, 'side'), /доступ/i);
+    assert.throws(() => live.setStatisticsPlacement(event.id, 1, 'floating'), /положение/i);
+  } finally { live.close(); rmSync(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
+});
+
 test('question statistics are visible before opening and can be hidden across opening', () => {
   const directory = mkdtempSync(join(tmpdir(), 'aag-preopen-statistics-'));
   const material = { title: 'Опрос', slides: [

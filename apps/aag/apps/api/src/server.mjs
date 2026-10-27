@@ -92,7 +92,7 @@ export function createApiServer({ store, materialStore, liveStore, importStore, 
           }
           catch (issue) { if (issue.status === 404) failed(limitKey); throw issue; }
         }
-        const liveRoute = liveStore && /^\/api\/live\/(\d+)(?:\/(host|participant|projector|slide|open|pause|resume|close|publish|respond|end|qr|joins|publish-rank|statistics))?$/.exec(path);
+        const liveRoute = liveStore && /^\/api\/live\/(\d+)(?:\/(host|participant|projector|slide|open|pause|resume|close|publish|respond|end|qr|joins|publish-rank|statistics|statistics-placement))?$/.exec(path);
         if (liveRoute && (liveRoute[2] === 'participant' || liveRoute[2] === 'respond')) {
           const eventId = Number(liveRoute[1]);
           const participantToken = req.headers['x-participant-token'];
@@ -210,6 +210,7 @@ export function createApiServer({ store, materialStore, liveStore, importStore, 
           if (action === 'joins' && method === 'POST') return json(res, 200, liveStore.setJoins(eventId, session.user.id, (await body(req)).open));
           if (action === 'publish-rank' && method === 'POST') return json(res, 200, liveStore.publishLeaderboard(eventId, session.user.id));
           if (action === 'statistics' && method === 'POST') return json(res, 200, liveStore.setStatisticsVisibility(eventId, session.user.id, (await body(req)).show));
+          if (action === 'statistics-placement' && method === 'POST') return json(res, 200, liveStore.setStatisticsPlacement(eventId, session.user.id, (await body(req)).placement));
           if (action === 'close' && method === 'POST') return json(res, 200, liveStore.closeQuestion(eventId, session.user.id));
           if (action === 'publish' && method === 'POST') return json(res, 200, liveStore.publish(eventId, session.user.id));
           if (action === 'end' && method === 'POST') return json(res, 200, liveStore.end(eventId, session.user.id));

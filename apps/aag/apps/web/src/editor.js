@@ -296,7 +296,7 @@ function renderFields() {
     select.addEventListener('change', () => { slide.statisticsPlacement = select.value; changed(); renderCanvas(); });
     setting.append(select); box.append(setting);
   }
-  if (isQuestion(slide)) { const hint = document.createElement('p'); hint.textContent = 'Статистика видна на слайде сразу и обновляется по мере ответов. Ведущий может скрыть её в пульте.'; box.append(hint); }
+  if (isQuestion(slide)) { const hint = document.createElement('p'); hint.textContent = 'Статистика видна на слайде сразу и обновляется по мере ответов. Изменения редактора попадут в новый показ; в уже запущенном показе положение меняется кнопкой в пульте ведущего.'; box.append(hint); }
   if (isQuestion(slide)) { const setting = document.createElement('label'); const input = document.createElement('input'); input.type = 'checkbox'; input.checked = slide.showPoints ?? ['quiz', 'multi-quiz', 'text'].includes(slide.type); input.addEventListener('change', () => { slide.showPoints = input.checked; changed(); }); setting.append(input, document.createTextNode(' Показывать баллы участнику на этом слайде')); box.append(setting); }
   if (isQuestion(slide) && slide.elements?.length) appendElementFields(box, slide);
   box.append(field('Заметки ведущего', 'note', 'textarea'));
