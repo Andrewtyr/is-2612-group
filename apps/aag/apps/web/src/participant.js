@@ -4,6 +4,7 @@ let state = null;
 let renderKey = '';
 let imageObjectUrl = null;
 let assetObjectUrls = [];
+let stageGeneration = 0;
 const message = (value) => { $('message').textContent = value; };
 const queryCode = new URLSearchParams(location.search).get('code');
 if (queryCode) $('join-form').elements.code.value = queryCode;
@@ -19,19 +20,27 @@ async function api(path, method = 'GET', data) {
   return result;
 }
 function stage(slide) {
+  const generation = ++stageGeneration;
   const box = $('stage'); box.replaceChildren();
   box.classList.toggle('question-media-stage', ['quiz', 'multi-quiz', 'poll', 'scale', 'text', 'word-cloud'].includes(slide.type) && !!slide.elements?.length);
   window.applySlideAppearance(box, slide, state.aspectRatio);
   if (imageObjectUrl) { URL.revokeObjectURL(imageObjectUrl); imageObjectUrl = null; }
   for (const url of assetObjectUrls) URL.revokeObjectURL(url);
   assetObjectUrls = [];
+  if (slide.template) {
+    box.style.backgroundImage = '';
+    fetch(`/aag/api/imports/${slide.template.importId}/pages/${slide.template.page}?event=${credentials.eventId}`, { headers: { 'x-participant-token': credentials.token } })
+      .then((response) => { if (!response.ok) throw new Error('Не удалось загрузить шаблон слайда.'); return response.blob(); })
+      .then((blob) => { if (generation !== stageGeneration) return; imageObjectUrl = URL.createObjectURL(blob); box.style.backgroundImage = `linear-gradient(#002a20b8,#002a20c9),url("${imageObjectUrl}")`; })
+      .catch((issue) => message(issue.message));
+  }
   if (slide.type === 'imported') {
     box.append(window.renderSlideElements(slide, { backgroundSrc: '', aspectRatio: state.aspectRatio }));
     const image = box.querySelector('.imported-background');
     const expectedIndex = state.slideIndex;
     fetch(`/aag/api/imports/${slide.importId}/pages/${slide.page}?event=${credentials.eventId}`, { headers: { 'x-participant-token': credentials.token } })
       .then((response) => { if (!response.ok) throw new Error('Не удалось загрузить слайд.'); return response.blob(); })
-      .then((blob) => { if (state?.slideIndex !== expectedIndex) return; imageObjectUrl = URL.createObjectURL(blob); image.src = imageObjectUrl; })
+      .then((blob) => { if (generation !== stageGeneration || state?.slideIndex !== expectedIndex) return; imageObjectUrl = URL.createObjectURL(blob); image.src = imageObjectUrl; })
       .catch((issue) => message(issue.message));
     return;
   }

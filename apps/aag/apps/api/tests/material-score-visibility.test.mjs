@@ -10,6 +10,20 @@ test('material keeps score visibility on a poll slide', () => {
   assert.equal(material.slides[0].showPoints, false);
 });
 
+test('an interactive slide keeps a selected PDF or PPTX page as its template', () => {
+  const template = { importId: '123e4567-e89b-42d3-a456-426614174000', page: 2 };
+  const material = validateMaterial({ title: 'Опрос', slides: [{ type: 'poll', title: 'Вопрос', options: ['Да', 'Нет'], template }] });
+  assert.deepEqual(material.slides[0].template, template);
+  const directory = mkdtempSync(join(tmpdir(), 'aag-saved-template-'));
+  const store = createMaterialStore(join(directory, 'materials.sqlite'), { title: 'Образец', slides: [{ type: 'cover', title: 'Начало' }] });
+  try {
+    const saved = store.create(material, 1);
+    assert.deepEqual(store.get(saved.id, 1).slides[0].template, template);
+  } finally { store.close(); rmSync(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
+  assert.throws(() => validateMaterial({ title: 'Опрос', slides: [{ type: 'poll', title: 'Вопрос', options: ['Да', 'Нет'], template: { ...template, page: 0 } }] }), /шаблон/i);
+  assert.throws(() => validateMaterial({ title: 'Опрос', slides: [{ type: 'cover', title: 'Начало', template }] }), /шаблон/i);
+});
+
 test('chart direction survives saving and reopening all choice question types', () => {
   const directory = mkdtempSync(join(tmpdir(), 'aag-chart-direction-'));
   const store = createMaterialStore(join(directory, 'materials.sqlite'), { title: 'Образец', slides: [{ type: 'cover', title: 'Начало' }] });

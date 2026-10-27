@@ -57,7 +57,7 @@ export function createApiServer({ store, materialStore, liveStore, importStore, 
           if (!allowed && liveStore && url.searchParams.has('event')) {
             const eventId = Number(url.searchParams.get('event'));
             const participantState = liveStore.getParticipant(eventId, req.headers['x-participant-token']);
-            allowed = participantState.slide.type === 'imported' && participantState.slide.importId === importId && participantState.slide.page === page;
+            allowed = (participantState.slide.type === 'imported' && participantState.slide.importId === importId && participantState.slide.page === page) || (participantState.slide.template?.importId === importId && participantState.slide.template.page === page);
           }
           if (!allowed) error(403, 'Слайд недоступен.');
           const file = importStore.pagePath(importId, page);
@@ -121,6 +121,10 @@ export function createApiServer({ store, materialStore, liveStore, importStore, 
           try { return json(res, 201, { imported: await importStore.importDocument(req, session.user.id, req.headers['x-file-name'], req.headers['content-type']) }); }
           finally { importing = false; }
         }
+        if (importStore && path === '/api/imports' && method === 'GET') {
+          if (!['admin', 'host'].includes(session.user.role)) error(403, 'Требуются права ведущего.');
+          return json(res, 200, { imports: importStore.list(session.user.id) });
+        }
         if (importStore && path === '/api/assets' && method === 'POST') {
           if (!['admin', 'host'].includes(session.user.role)) error(403, 'Требуются права ведущего.');
           return json(res, 201, { asset: await importStore.uploadAsset(req, session.user.id) });
@@ -138,12 +142,12 @@ export function createApiServer({ store, materialStore, liveStore, importStore, 
         if (materialStore && path.startsWith('/api/materials')) {
           if (!['admin', 'host'].includes(session.user.role)) error(403, 'Требуются права ведущего.');
           if (path === '/api/materials' && method === 'GET') return json(res, 200, { materials: materialStore.list(session.user.id, url.searchParams.get('archived') === '1') });
-          if (path === '/api/materials' && method === 'POST') { const data = await body(req); if (data.slides?.some((slide) => slide.type === 'imported' || slide.elements?.some((element) => ['image', 'video'].includes(element.type))) && !importStore) error(400, 'Загрузка файлов недоступна.'); importStore?.verifySlides(data.slides, session.user.id); importStore?.verifyAssets(data.slides, session.user.id); return json(res, 201, { material: materialStore.create(data, session.user.id) }); }
+          if (path === '/api/materials' && method === 'POST') { const data = await body(req); if (data.slides?.some((slide) => slide.type === 'imported' || slide.template || slide.elements?.some((element) => ['image', 'video'].includes(element.type))) && !importStore) error(400, 'Загрузка файлов недоступна.'); importStore?.verifySlides(data.slides, session.user.id); importStore?.verifyAssets(data.slides, session.user.id); return json(res, 201, { material: materialStore.create(data, session.user.id) }); }
           const match = /^\/api\/materials\/(\d+)$/.exec(path);
           if (match) {
             const id = Number(match[1]);
             if (method === 'GET') return json(res, 200, { material: materialStore.get(id, session.user.id) });
-            if (method === 'PUT') { const data = await body(req); if (data.slides?.some((slide) => slide.type === 'imported' || slide.elements?.some((element) => ['image', 'video'].includes(element.type))) && !importStore) error(400, 'Загрузка файлов недоступна.'); importStore?.verifySlides(data.slides, session.user.id); importStore?.verifyAssets(data.slides, session.user.id); return json(res, 200, { material: materialStore.update(id, data, session.user.id) }); }
+            if (method === 'PUT') { const data = await body(req); if (data.slides?.some((slide) => slide.type === 'imported' || slide.template || slide.elements?.some((element) => ['image', 'video'].includes(element.type))) && !importStore) error(400, 'Загрузка файлов недоступна.'); importStore?.verifySlides(data.slides, session.user.id); importStore?.verifyAssets(data.slides, session.user.id); return json(res, 200, { material: materialStore.update(id, data, session.user.id) }); }
             if (method === 'DELETE') return json(res, 200, materialStore.remove(id, session.user.id));
           }
           const restore = /^\/api\/materials\/(\d+)\/restore$/.exec(path);

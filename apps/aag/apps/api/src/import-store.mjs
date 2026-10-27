@@ -24,6 +24,7 @@ export function createImportStore(dbPath, uploadRoot, renderer = renderDocument)
   return {
     close: () => db.close(),
     owns(id, ownerId) { return get(id)?.owner_id === ownerId; },
+    list(ownerId) { return db.prepare('SELECT id,original_name AS name,slide_count AS slideCount FROM imports WHERE owner_id=? ORDER BY created_at DESC,id DESC LIMIT 50').all(ownerId); },
     ownsAsset(id, ownerId) { return db.prepare('SELECT owner_id FROM assets WHERE id=?').get(id)?.owner_id === ownerId; },
     verifyAssets(slides, ownerId) {
       for (const slide of slides ?? []) for (const element of slide.elements ?? []) if (['image', 'video'].includes(element.type) && !(element.type === 'video' && element.url)) {
@@ -32,9 +33,9 @@ export function createImportStore(dbPath, uploadRoot, renderer = renderDocument)
       }
     },
     verifySlides(slides, ownerId) {
-      for (const slide of slides ?? []) if (slide.type === 'imported') {
-        const record = get(slide.importId);
-        if (!record || record.owner_id !== ownerId || slide.page > record.slide_count) fail(403, 'Импортированный слайд недоступен.');
+      for (const slide of slides ?? []) for (const reference of [slide.type === 'imported' ? { importId: slide.importId, page: slide.page } : null, slide.template].filter(Boolean)) {
+        const record = get(reference.importId);
+        if (!record || record.owner_id !== ownerId || reference.page < 1 || reference.page > record.slide_count) fail(403, 'Импортированный слайд недоступен.');
       }
     },
     async importDocument(req, ownerId, rawName, contentType) {

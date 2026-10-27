@@ -22,6 +22,19 @@ test('legacy slide keeps its background and presentation ratio', () => {
   assert.equal(root.style.aspectRatio, '16 / 9');
 });
 
+test('interactive template is shown behind the question and removed on the next slide', () => {
+  const view = load('presentation-view.js');
+  const root = { style: {} };
+  const template = { importId: '123e4567-e89b-42d3-a456-426614174000', page: 2 };
+  view.applySlideAppearance(root, { type: 'poll', template }, '16:9');
+  assert.match(root.style.backgroundImage, /123e4567-e89b-42d3-a456-426614174000\/pages\/2/);
+  assert.match(root.style.backgroundImage, /linear-gradient/);
+  assert.equal(root.style.backgroundSize, 'cover');
+  view.applySlideAppearance(root, { type: 'poll' }, '16:9');
+  assert.equal(root.style.backgroundImage, '');
+  assert.equal(root.style.backgroundSize, '');
+});
+
 test('participant view changes when the host closes a question', () => {
   const view = load('presentation-view.js');
   const data = { slideIndex: 1, question: { deadline: 1234, closed: false }, answered: false, event: { status: 'active' } };

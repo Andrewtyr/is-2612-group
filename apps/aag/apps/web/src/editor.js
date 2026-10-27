@@ -6,6 +6,7 @@ let selectedElement = -1;
 let activeTab = 'presentation';
 let lastPresentationSlide = 0;
 let material = { title: 'Новый материал', audience: '', description: '', slides: [{ type: 'cover', eyebrow: 'ПРЕЗЕНТАЦИЯ', title: 'Заголовок', body: 'Подзаголовок' }] };
+let templateImports = [];
 let dirtyRevision = 0;
 let savedRevision = 0;
 let saveTimer = null;
@@ -66,6 +67,9 @@ function renderCanvas() {
   box.replaceChildren(node('small', slide.eyebrow || 'ААГ ИНТЕРАКТИВ'), node('h2', slide.title || 'Заголовок'));
   box.style.aspectRatio = material.aspectRatio === '4:3' ? '4 / 3' : '16 / 9';
   if (slide.background) box.style.background = slide.background; else box.style.removeProperty('background');
+  box.style.backgroundImage = slide.template ? `linear-gradient(#002a20b8,#002a20c9),url("/aag/api/imports/${slide.template.importId}/pages/${slide.template.page}")` : '';
+  box.style.backgroundSize = slide.template ? 'cover' : '';
+  box.style.backgroundPosition = slide.template ? 'center' : '';
   if (slide.body) box.append(node('p', slide.body));
   const values = slide.options ?? slide.bullets;
   if (values?.length) { const list = document.createElement(slide.options ? 'ol' : 'ul'); values.forEach((value) => list.append(node('li', value))); box.append(list); }
@@ -163,6 +167,48 @@ function textFormatting(box, slide) {
   reset.addEventListener('click', () => { delete slide.textStyles; changed(); renderCanvas(); renderFields(); }); section.append(reset);
   box.append(section);
 }
+function questionTemplatePicker(slide) {
+  const section = document.createElement('fieldset'); section.className = 'question-template-picker';
+  section.append(node('legend', 'Шаблон интерактивного слайда'));
+  const label = document.createElement('label'); label.textContent = 'Презентация';
+  const select = document.createElement('select'); select.append(new Option('Стандартный зелёный фон', ''));
+  for (const imported of templateImports) select.append(new Option(imported.name, imported.id));
+  if (slide.template && !templateImports.some((entry) => entry.id === slide.template.importId)) select.append(new Option('Ранее загруженный шаблон', slide.template.importId));
+  select.value = slide.template?.importId || '';
+  select.addEventListener('change', () => {
+    if (select.value) slide.template = { importId: select.value, page: 1 };
+    else delete slide.template;
+    changed(); renderCanvas(); renderFields();
+  });
+  label.append(select); section.append(label);
+  if (slide.template) {
+    const pageLabel = document.createElement('label'); pageLabel.textContent = 'Страница для фона';
+    const pageSelect = document.createElement('select');
+    const count = templateImports.find((entry) => entry.id === slide.template.importId)?.slideCount ?? slide.template.page;
+    for (let page = 1; page <= count; page++) pageSelect.append(new Option(`Страница ${page}`, String(page)));
+    pageSelect.value = String(slide.template.page);
+    pageSelect.addEventListener('change', () => { slide.template.page = Number(pageSelect.value); changed(); renderCanvas(); renderFields(); });
+    pageLabel.append(pageSelect); section.append(pageLabel);
+    const image = document.createElement('img'); image.className = 'question-template-preview'; image.alt = 'Предпросмотр шаблона'; image.src = `/aag/api/imports/${slide.template.importId}/pages/${slide.template.page}`; section.append(image);
+  }
+  const upload = document.createElement('label'); upload.textContent = 'Загрузить новый PPTX или PDF';
+  const file = document.createElement('input'); file.type = 'file'; file.accept = '.pptx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation';
+  file.addEventListener('change', async () => { try { if (file.files?.[0]) await uploadQuestionTemplate(file.files[0], slide); } catch (issue) { message(issue.message); } finally { file.value = ''; } });
+  upload.append(file); section.append(upload, node('small', 'До 50 МБ. Выберите страницу после загрузки. Она будет фоном под вопросом и диаграммой; текст исходного файла останется частью картинки.'));
+  return section;
+}
+async function uploadQuestionTemplate(file, targetSlide) {
+  const extension = file.name.toLowerCase().split('.').pop();
+  if (!['pdf', 'pptx'].includes(extension) || file.size > 50 * 1024 * 1024) throw new Error('Выберите PPTX или PDF до 50 МБ.');
+  message('Преобразуем страницы шаблона…');
+  const type = extension === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+  const response = await fetch('/aag/api/imports', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': type, 'x-file-name': encodeURIComponent(file.name), 'x-csrf-token': csrf }, body: file });
+  const result = await response.json(); if (!response.ok) throw new Error(result.error ?? 'Не удалось загрузить шаблон.');
+  if (targetSlide !== current()) throw new Error('Слайд изменился. Выберите страницу загруженного шаблона снова.');
+  templateImports.unshift({ id: result.imported.id, name: result.imported.name, slideCount: result.imported.slideCount });
+  targetSlide.template = { importId: result.imported.id, page: 1 };
+  changed(); render(); message(`Шаблон загружен: ${result.imported.slideCount} страниц. Сейчас выбрана первая.`);
+}
 function renderFields() {
   const slide = current(); const box = $(activeTab === 'interactive' ? 'question-fields' : 'fields'); box.replaceChildren();
   if (activeTab === 'presentation' && isQuestion(slide)) { box.append(node('p', 'Текст и ответы меняются во вкладке «Интерактив». Здесь можно добавить и настроить изображение или видео рядом с вопросом.')); if (slide.elements?.length) appendElementFields(box, slide); return; }
@@ -181,6 +227,7 @@ function renderFields() {
   }
   box.append(field('Заголовок', 'title'), field('Метка над заголовком', 'eyebrow'), field('Текст', 'body', 'textarea'));
   textFormatting(box, slide);
+  if (isQuestion(slide)) box.append(questionTemplatePicker(slide));
   if (!isQuestion(slide)) { const background = document.createElement('label'); background.textContent = 'Фон слайда'; const color = document.createElement('input'); color.type = 'color'; color.value = slide.background || '#006f37'; color.addEventListener('input', () => { slide.background = color.value; changed(); renderCanvas(); }); background.append(color); box.append(background); }
   if (['content', 'closing'].includes(slide.type)) box.append(field('Пункты — по одному на строку', 'bullets', 'textarea'));
   if (['quiz', 'multi-quiz', 'poll'].includes(slide.type)) box.append(field('Варианты — по одному на строку', 'options', 'textarea'));
@@ -217,7 +264,7 @@ function render() {
   $('question-overview').replaceChildren(question ? node('h2', current().title) : node('p', 'В этом материале пока нет вопросов.'));
 }
 function startEditing() { $('login-panel').hidden = true; $('editor-panel').hidden = false; $('material-title').value = material.title; $('material-audience').value = material.audience || ''; $('material-description').value = material.description || ''; $('aspect-ratio').value = material.aspectRatio || '16:9'; $('page-heading').textContent = material.title; $('save-status').textContent = materialId ? `Сохранено · версия ${material.version}` : 'Новый материал'; lastSnapshot = JSON.stringify(material); render(); }
-async function load() { if (materialId) material = (await api(`/aag/api/materials/${materialId}`)).material; startEditing(); }
+async function load() { if (materialId) material = (await api(`/aag/api/materials/${materialId}`)).material; templateImports = (await api('/aag/api/imports')).imports; startEditing(); }
 async function save() {
   clearTimeout(saveTimer);
   if (saveBlocked) throw new Error('Правки не сохранены. Обновите страницу, чтобы загрузить новую версию материала.');

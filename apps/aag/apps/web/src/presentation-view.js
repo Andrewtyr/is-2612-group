@@ -1,7 +1,10 @@
 window.applySlideAppearance = (root, slide, aspectRatio = '16:9') => {
   root.style.aspectRatio = aspectRatio === '4:3' ? '4 / 3' : '16 / 9';
   root.style.backgroundColor = slide.background ?? '';
-  root.style.backgroundImage = slide.background ? 'none' : '';
+  root.style.backgroundImage = slide.template ? `linear-gradient(#002a20b8,#002a20c9),url("/aag/api/imports/${slide.template.importId}/pages/${slide.template.page}")` : slide.background ? 'none' : '';
+  root.style.backgroundSize = slide.template ? 'cover' : '';
+  root.style.backgroundPosition = slide.template ? 'center' : '';
+  root.style.backgroundRepeat = slide.template ? 'no-repeat' : '';
 };
 
 window.participantRenderKey = (data) => [
