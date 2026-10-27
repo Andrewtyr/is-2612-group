@@ -10,6 +10,13 @@ const load = (name) => {
   return context.window;
 };
 
+test('editor loads shared slide view helpers before its own script', () => {
+  const html = readFileSync(resolve('editor.html'), 'utf8');
+  const helper = html.indexOf('src="./src/presentation-view.js"');
+  const editor = html.indexOf('src="./src/editor.js"');
+  assert.ok(helper >= 0 && helper < editor);
+});
+
 test('legacy slide keeps its background and presentation ratio', () => {
   const root = { style: {} };
   load('presentation-view.js').applySlideAppearance(root, { background: '#abcdef' }, '4:3');
