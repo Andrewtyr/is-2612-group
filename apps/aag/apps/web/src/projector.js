@@ -117,7 +117,7 @@ async function refresh() {
       if (isQuestion && data.slide.elements?.some((element) => ['text', 'shape'].includes(element.type))) box.append(window.renderQuestionOverlay(data.slide, { aspectRatio: '16:9' }));
     }
     }
-    if (!welcome && connection.parentElement !== document.querySelector('.projector-layout')) document.querySelector('.projector-layout').append(connection);
+    if (!welcome && connection.parentElement !== connectionButton.parentElement) connectionButton.before(connection);
     box.querySelectorAll(':scope > .projector-statistics, :scope > .cloud-map, :scope > .cloud, :scope > .question-state').forEach((item) => item.remove());
     if (data.statistics) box.append(renderStatistics(data.slide, data.statistics));
     if (data.wordCloud.length) box.append(window.renderWordCloud(data.wordCloud));
