@@ -44,7 +44,7 @@ export function validateMaterial(input) {
     }
     const questionType = ['quiz', 'multi-quiz', 'poll', 'scale', 'text', 'word-cloud'].includes(type);
     if (item.statisticsChart !== undefined) {
-      if (!['quiz', 'multi-quiz', 'poll', 'scale'].includes(type) || !['bar', 'pie'].includes(item.statisticsChart)) fail(400, 'Некорректный вид диаграммы.');
+      if (!['quiz', 'multi-quiz', 'poll', 'scale'].includes(type) || !['bar', 'pie', 'column', 'horizontal'].includes(item.statisticsChart)) fail(400, 'Некорректный вид диаграммы.');
       slide.statisticsChart = item.statisticsChart;
     }
     if (item.showStatistics !== undefined) {

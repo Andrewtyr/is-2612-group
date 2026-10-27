@@ -73,11 +73,17 @@ function render(data) {
       else if (['quiz', 'poll'].includes(slide.type)) counts[Number(answer.answer)]++;
       else if (slide.type === 'scale') counts[Number(answer.answer) - 1]++;
     }
-    if (slide.type === 'multi-quiz') {
-      summary.append(makeSummary('Доля ответивших по каждому варианту', ''));
-      const chart = window.statisticsChartData(slide.options, counts, data.answers.length);
-      summary.append(window.renderStatisticsColumns(chart.rows));
-    } else counts.forEach((count, index) => summary.append(makeSummary(slide.options?.[index] ?? String(index + 1), count)));
+    if (counts.length) {
+      if (slide.type === 'multi-quiz') summary.append(makeSummary('Доля ответивших по каждому варианту', ''));
+      const chart = window.statisticsChartData(slide.options ?? counts.map((_, index) => String(index + 1)), counts, data.answers.length);
+      const mode = window.statisticsChartMode(slide);
+      if (mode === 'column') summary.append(window.renderStatisticsColumns(chart.rows));
+      else if (mode === 'bar') summary.append(window.renderStatisticsBars(chart.rows));
+      else {
+        const pie = document.createElement('div'); pie.className = 'host-statistics-pie'; pie.style.background = chart.gradient; pie.setAttribute('role', 'img'); pie.setAttribute('aria-label', chart.rows.map((row) => `${row.label}: ${row.count}`).join('; ')); summary.append(pie);
+        chart.rows.forEach((row) => summary.append(makeSummary(row.label, `${row.count} · ${row.percent}%`)));
+      }
+    }
   }
   if (!data.answers.length) answers.textContent = 'Пока нет ответов.';
   for (const answer of data.answers) {

@@ -1,4 +1,22 @@
-window.statisticsChartMode = (slide) => slide.type === 'multi-quiz' ? 'column' : slide.statisticsChart === 'pie' ? 'pie' : 'bar';
+window.statisticsChartMode = (slide) => {
+  if (slide.statisticsChart === 'horizontal') return 'bar';
+  if (slide.statisticsChart === 'column') return 'column';
+  return slide.type === 'multi-quiz' ? 'column' : slide.statisticsChart === 'pie' ? 'pie' : 'bar';
+};
+window.renderStatisticsBars = (rows) => {
+  const chart = document.createElement('div'); chart.className = 'statistics-bars';
+  chart.setAttribute('role', 'img');
+  chart.setAttribute('aria-label', rows.map((row) => `${row.label}: ${row.count}, ${row.percent}%`).join('; '));
+  for (const row of rows) {
+    const item = document.createElement('div'); item.className = 'statistics-bar';
+    const label = document.createElement('span'); label.textContent = row.label;
+    const value = document.createElement('strong'); value.textContent = `${row.count} · ${row.percent}%`;
+    const track = document.createElement('div'); track.className = 'statistics-bar-track';
+    const fill = document.createElement('span'); fill.style.width = `${row.percent}%`; fill.style.backgroundColor = row.color;
+    track.append(fill); item.append(label, value, track); chart.append(item);
+  }
+  return chart;
+};
 window.statisticsChartData = (labels, counts, respondents, palette = ['#087c44', '#d2a64a', '#4077bd', '#a76bc1', '#df7f5a', '#4fada9', '#7b8b52', '#c36b89', '#6964b5', '#a37751']) => {
   const total = counts.reduce((sum, count) => sum + Math.max(0, count), 0);
   const denominator = respondents ?? total;

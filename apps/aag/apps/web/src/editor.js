@@ -193,9 +193,9 @@ function renderFields() {
   if (['quiz', 'multi-quiz', 'poll', 'scale'].includes(slide.type)) {
     const setting = document.createElement('label'); setting.textContent = 'Диаграмма результатов';
     const select = document.createElement('select');
-    const chartOptions = slide.type === 'multi-quiz' ? [['bar', 'Вертикальные столбцы (% ответивших)']] : [['bar', 'Столбцы'], ['pie', 'Круговая']];
+    const chartOptions = [['column', 'Вертикальные столбцы'], ['horizontal', 'Горизонтальные полосы'], ...(slide.type === 'multi-quiz' ? [] : [['pie', 'Круговая']])];
     for (const [value, label] of chartOptions) { const option = document.createElement('option'); option.value = value; option.textContent = label; select.append(option); }
-    select.value = slide.type === 'multi-quiz' ? 'bar' : slide.statisticsChart || 'bar';
+    select.value = ['column', 'horizontal'].includes(slide.statisticsChart) ? slide.statisticsChart : slide.type === 'multi-quiz' ? 'column' : slide.statisticsChart === 'pie' ? 'pie' : 'horizontal';
     select.addEventListener('change', () => { slide.statisticsChart = select.value; changed(); });
     setting.append(select); box.append(setting);
   }

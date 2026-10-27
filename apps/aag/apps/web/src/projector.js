@@ -32,6 +32,10 @@ function renderStatistics(slide, statistics) {
     panel.append(window.renderStatisticsColumns(chart.rows));
     return panel;
   }
+  if (chartMode === 'bar') {
+    panel.append(window.renderStatisticsBars(chart.rows));
+    return panel;
+  }
   if (chartMode === 'pie') {
     panel.classList.add('projector-statistics-pie');
     const pie = document.createElement('div'); pie.className = 'statistics-pie'; pie.style.background = chart.gradient;

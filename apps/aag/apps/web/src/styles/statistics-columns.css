@@ -50,3 +50,8 @@
 #statistics-summary .statistics-column { grid-template-rows: 22px var(--chart-height) minmax(38px, auto); }
 #statistics-summary .statistics-column strong { font-size: 11px; }
 #statistics-summary .statistics-column-label { font-size: 10px; }
+.statistics-bars{display:grid;gap:12px;width:100%}
+.statistics-bar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;font-size:12px;overflow-wrap:anywhere}
+.statistics-bar-track{grid-column:1/-1;height:10px;background:#e7eee8;border-radius:5px;overflow:hidden}
+.statistics-bar-track>span{display:block;height:100%;border-radius:5px}
+.host-statistics-pie{width:150px;max-width:100%;aspect-ratio:1;border-radius:50%;margin:16px auto}
