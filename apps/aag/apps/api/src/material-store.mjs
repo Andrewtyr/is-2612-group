@@ -52,6 +52,10 @@ export function validateMaterial(input) {
       if (!['quiz', 'multi-quiz', 'poll', 'scale'].includes(type) || !['bar', 'pie', 'column', 'horizontal'].includes(item.statisticsChart)) fail(400, 'Некорректный вид диаграммы.');
       slide.statisticsChart = item.statisticsChart;
     }
+    if (item.statisticsPlacement !== undefined) {
+      if (!['quiz', 'multi-quiz', 'poll', 'scale', 'text'].includes(type) || !['side', 'center'].includes(item.statisticsPlacement)) fail(400, 'Некорректное расположение статистики.');
+      slide.statisticsPlacement = item.statisticsPlacement;
+    }
     if (item.showStatistics !== undefined) {
       if (!questionType || typeof item.showStatistics !== 'boolean') fail(400, 'Некорректная настройка статистики.');
       slide.showStatistics = item.showStatistics;

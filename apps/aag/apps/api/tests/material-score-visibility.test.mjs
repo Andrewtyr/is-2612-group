@@ -10,6 +10,17 @@ test('material keeps score visibility on a poll slide', () => {
   assert.equal(material.slides[0].showPoints, false);
 });
 
+test('question statistics placement survives saving and rejects unknown positions', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'aag-statistics-placement-'));
+  const store = createMaterialStore(join(directory, 'materials.sqlite'), { title: 'Образец', slides: [{ type: 'cover', title: 'Начало' }] });
+  try {
+    const saved = store.create({ title: 'Опрос', slides: [{ type: 'poll', title: 'Вопрос', options: ['Да', 'Нет'], statisticsPlacement: 'center' }] }, 1);
+    assert.equal(store.get(saved.id, 1).slides[0].statisticsPlacement, 'center');
+    assert.throws(() => validateMaterial({ title: 'Опрос', slides: [{ type: 'poll', title: 'Вопрос', options: ['Да', 'Нет'], statisticsPlacement: 'floating' }] }), /статистик/i);
+    assert.throws(() => validateMaterial({ title: 'Опрос', slides: [{ type: 'cover', title: 'Начало', statisticsPlacement: 'center' }] }), /статистик/i);
+  } finally { store.close(); rmSync(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
+});
+
 test('an interactive slide keeps a selected PDF or PPTX page as its template', () => {
   const template = { importId: '123e4567-e89b-42d3-a456-426614174000', page: 2 };
   const material = validateMaterial({ title: 'Опрос', slides: [{ type: 'poll', title: 'Вопрос', options: ['Да', 'Нет'], template }] });

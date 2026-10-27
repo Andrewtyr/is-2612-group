@@ -50,11 +50,38 @@ function setTab(tab) {
   $('presentation-tab').setAttribute('aria-selected', String(tab === 'presentation'));
   $('interactive-tab').setAttribute('aria-selected', String(tab === 'interactive'));
   if (tab === 'interactive' && !isQuestion(current())) selected = material.slides.findIndex(isQuestion) >= 0 ? material.slides.findIndex(isQuestion) : selected;
+  (tab === 'interactive' ? $('interactive-canvas-slot') : document.querySelector('#presentation-pane .editor-center')).prepend($('canvas').closest('.canvas-panel'));
   selectedElement = -1; render();
+}
+function editableCanvasText(element, slide, key, index = -1) {
+  if (!isQuestion(slide)) return element;
+  const label = index >= 0 ? `Вариант ${index + 1}` : key === 'title' ? 'Вопрос' : key === 'eyebrow' ? 'Метка' : 'Текст слайда';
+  element.title = 'Дважды нажмите, чтобы изменить текст';
+  element.setAttribute('aria-label', `${label}: дважды нажмите для редактирования`);
+  element.addEventListener('dblclick', () => { element.contentEditable = 'true'; element.focus(); });
+  element.addEventListener('keydown', (event) => {
+    if (element.contentEditable !== 'true') return;
+    if (event.key === 'Escape') { element.textContent = index >= 0 ? slide.options[index] : slide[key] || ''; element.blur(); }
+    else if (event.key === 'Enter' && (key !== 'body' || !event.shiftKey)) { event.preventDefault(); element.blur(); }
+  });
+  element.addEventListener('blur', () => {
+    if (element.contentEditable !== 'true') return;
+    element.contentEditable = 'false';
+    const oldValue = index >= 0 ? slide.options[index] : slide[key] || '';
+    const value = element.textContent.trim();
+    const limit = index >= 0 ? 300 : key === 'title' ? 200 : key === 'eyebrow' ? 100 : 1500;
+    if ((!value && (index >= 0 || key === 'title')) || value.length > limit) { element.textContent = oldValue; return message(`Проверьте ${label.toLowerCase()}: не более ${limit} символов.`); }
+    if (value === oldValue) return;
+    if (index >= 0) slide.options[index] = value; else slide[key] = value;
+    changed(); renderList(); renderCanvas(); renderFields();
+  });
+  return element;
 }
 function renderCanvas() {
   const slide = current(); const box = $('canvas');
-  box.classList.toggle('canvas-question-media', isQuestion(slide) && !!slide.elements?.length);
+  const chart = ['quiz', 'multi-quiz', 'poll', 'scale', 'text'].includes(slide.type);
+  box.classList.toggle('canvas-question-layout', isQuestion(slide) && (chart || !!slide.elements?.length));
+  box.classList.toggle('canvas-question-centered', chart && slide.statisticsPlacement === 'center');
   box.style.removeProperty('background');
   box.style.aspectRatio = material.aspectRatio === '4:3' ? '4 / 3' : '16 / 9';
   if (slide.type === 'imported' || (slide.elements && !isQuestion(slide))) {
@@ -64,20 +91,29 @@ function renderCanvas() {
     }));
     return;
   }
-  box.replaceChildren(node('small', slide.eyebrow || 'ААГ ИНТЕРАКТИВ'), node('h2', slide.title || 'Заголовок'));
+  box.replaceChildren(editableCanvasText(node('small', slide.eyebrow || 'ААГ ИНТЕРАКТИВ'), slide, 'eyebrow'), editableCanvasText(node('h2', slide.title || 'Заголовок'), slide, 'title'));
   box.style.aspectRatio = material.aspectRatio === '4:3' ? '4 / 3' : '16 / 9';
   if (slide.background) box.style.background = slide.background; else box.style.removeProperty('background');
   box.style.backgroundImage = slide.template ? `linear-gradient(#002a20b8,#002a20c9),url("/aag/api/imports/${slide.template.importId}/pages/${slide.template.page}")` : '';
   box.style.backgroundSize = slide.template ? 'cover' : '';
   box.style.backgroundPosition = slide.template ? 'center' : '';
-  if (slide.body) box.append(node('p', slide.body));
+  if (slide.body) box.append(editableCanvasText(node('p', slide.body), slide, 'body'));
   const values = slide.options ?? slide.bullets;
-  if (values?.length) { const list = document.createElement(slide.options ? 'ol' : 'ul'); values.forEach((value) => list.append(node('li', value))); box.append(list); }
+  if (values?.length) { const list = document.createElement(slide.options ? 'ol' : 'ul'); values.forEach((value, index) => list.append(slide.options ? editableCanvasText(node('li', value), slide, 'options', index) : node('li', value))); box.append(list); }
   if (slide.type === 'scale') box.append(node('p', `Оценка от 1 до ${slide.maxValue}`));
+  const side = document.createElement('div'); side.className = 'canvas-question-side';
   if (isQuestion(slide) && slide.elements?.length) {
     const media = document.createElement('div'); media.className = 'question-media-preview';
-    media.append(window.renderSlideElements({ elements: slide.elements }, { editable: true, aspectRatio: material.aspectRatio, selectedIndex: selectedElement, onSelect: (index) => { selectedElement = index; box.querySelectorAll('.slide-object').forEach((item, itemIndex) => item.classList.toggle('selected', itemIndex === index)); renderFields(); }, onChange: () => { changed(); renderFields(); } })); box.append(media);
+    media.append(window.renderSlideElements({ elements: slide.elements }, { editable: true, aspectRatio: material.aspectRatio, selectedIndex: selectedElement, onSelect: (index) => { selectedElement = index; box.querySelectorAll('.slide-object').forEach((item, itemIndex) => item.classList.toggle('selected', itemIndex === index)); renderFields(); }, onChange: () => { changed(); renderFields(); } })); side.append(media);
   }
+  if (chart) {
+    const preview = document.createElement('aside'); preview.className = 'canvas-statistics-preview';
+    preview.append(node('strong', 'Результаты ответов'), node('small', 'Ответили: 0'));
+    const labels = slide.options ?? (slide.type === 'scale' ? Array.from({ length: slide.maxValue }, (_, index) => String(index + 1)) : []);
+    labels.slice(0, 6).forEach((label) => { const row = document.createElement('div'); row.append(node('span', label), node('b', '0')); preview.append(row); });
+    side.append(preview);
+  }
+  if (side.childElementCount) box.append(side);
   window.applyTextStyles(box, slide);
 }
 function field(label, key, kind = 'input', help = '') {
@@ -246,9 +282,17 @@ function renderFields() {
     select.addEventListener('change', () => { slide.statisticsChart = select.value; changed(); });
     setting.append(select); box.append(setting);
   }
+  if (['quiz', 'multi-quiz', 'poll', 'scale', 'text'].includes(slide.type)) {
+    const setting = document.createElement('label'); setting.textContent = 'Расположение статистики на экране показа';
+    const select = document.createElement('select');
+    select.append(new Option('Справа от вопроса', 'side'), new Option('По центру под вопросом', 'center'));
+    select.value = slide.statisticsPlacement || 'side';
+    select.addEventListener('change', () => { slide.statisticsPlacement = select.value; changed(); renderCanvas(); });
+    setting.append(select); box.append(setting);
+  }
   if (isQuestion(slide)) { const hint = document.createElement('p'); hint.textContent = 'Статистика видна на слайде сразу и обновляется по мере ответов. Ведущий может скрыть её в пульте.'; box.append(hint); }
   if (isQuestion(slide)) { const setting = document.createElement('label'); const input = document.createElement('input'); input.type = 'checkbox'; input.checked = slide.showPoints ?? ['quiz', 'multi-quiz', 'text'].includes(slide.type); input.addEventListener('change', () => { slide.showPoints = input.checked; changed(); }); setting.append(input, document.createTextNode(' Показывать баллы участнику на этом слайде')); box.append(setting); }
-  if (isQuestion(slide)) { const mediaButton = document.createElement('button'); mediaButton.type = 'button'; mediaButton.textContent = 'Добавить или настроить медиа на слайде'; mediaButton.addEventListener('click', () => setTab('presentation')); box.append(mediaButton); }
+  if (isQuestion(slide) && slide.elements?.length) appendElementFields(box, slide);
   box.append(field('Заметки ведущего', 'note', 'textarea'));
 }
 function render() {
@@ -262,6 +306,7 @@ function render() {
   $('undo-button').disabled = !undoStack.length; $('redo-button').disabled = !redoStack.length;
   $('question-up').disabled = !question || selected === 0; $('question-down').disabled = !question || selected === material.slides.length - 1;
   $('question-overview').replaceChildren(question ? node('h2', current().title) : node('p', 'В этом материале пока нет вопросов.'));
+  for (const id of ['question-add-image', 'question-add-video', 'question-add-video-link']) $(id).disabled = !question;
 }
 function startEditing() { $('login-panel').hidden = true; $('editor-panel').hidden = false; $('material-title').value = material.title; $('material-audience').value = material.audience || ''; $('material-description').value = material.description || ''; $('aspect-ratio').value = material.aspectRatio || '16:9'; $('page-heading').textContent = material.title; $('save-status').textContent = materialId ? `Сохранено · версия ${material.version}` : 'Новый материал'; lastSnapshot = JSON.stringify(material); render(); }
 async function load() { if (materialId) material = (await api(`/aag/api/materials/${materialId}`)).material; templateImports = (await api('/aag/api/imports')).imports; startEditing(); }
@@ -362,6 +407,7 @@ async function uploadMedia(file, replacement = null) {
     changed(); render(); message('Медиа добавлено. Выберите его на слайде, чтобы изменить размер, обрезку и положение.');
 }
 for (const id of ['add-image', 'add-video']) $(id).addEventListener('change', async (event) => { const input = event.currentTarget; try { if (input.files[0]) await uploadMedia(input.files[0]); } catch (issue) { message(issue.message); } finally { input.value = ''; } });
+for (const id of ['question-add-image', 'question-add-video']) $(id).addEventListener('change', async (event) => { const input = event.currentTarget; try { if (input.files[0]) await uploadMedia(input.files[0]); } catch (issue) { message(issue.message); } finally { input.value = ''; } });
 let videoLinkContext = null;
 function addVideoLink(replacement = null) {
   videoLinkContext = { replacement, targetSlide: current() };
@@ -382,6 +428,7 @@ $('video-link-form').addEventListener('submit', async (event) => {
   finally { button.disabled = false; }
 });
 $('add-video-link').addEventListener('click', () => addVideoLink());
+$('question-add-video-link').addEventListener('click', () => addVideoLink());
 $('duplicate-slide').addEventListener('click', () => { if (material.slides.length >= 150) return; material.slides.splice(selected + 1, 0, window.editorSlideTools.duplicateSlide(current())); selected++; selectedElement = -1; changed(); render(); });
 $('import-file').addEventListener('change', async (event) => {
   const input = event.currentTarget; const file = input.files?.[0]; if (!file) return;

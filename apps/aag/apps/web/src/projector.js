@@ -96,6 +96,7 @@ async function refresh() {
     box.style.setProperty('--title-size', `${typography.title}cqw`);
     box.style.setProperty('--options-size', `${typography.options}cqw`);
     box.classList.toggle('projector-with-statistics', !!data.statistics);
+    box.classList.toggle('projector-statistics-centered', !!data.statistics && data.slide.statisticsPlacement === 'center');
     box.classList.toggle('projector-with-media', isQuestion && !!data.slide.elements?.length);
     box.classList.toggle('projector-with-cloud', !!data.wordCloud.length);
     box.classList.toggle('projector-element-slide', elementSlide);
