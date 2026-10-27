@@ -43,8 +43,9 @@ function render(data) {
   $('participant-count').textContent = `Подключено: ${data.participantCount}`;
   $('answer-progress').textContent = question ? `${data.answers.length} из ${data.participantCount}` : '';
   appendSlide($('stage'), slide, data.aspectRatio);
+  window.applyTextStyles($('stage'), slide);
   const next = data.nextSlide;
-  if (next) { appendSlide($('next-stage'), next, data.aspectRatio); $('next-slide-label').textContent = next.title; }
+  if (next) { appendSlide($('next-stage'), next, data.aspectRatio); window.applyTextStyles($('next-stage'), next); $('next-slide-label').textContent = next.title; }
   else { $('next-stage').replaceChildren(); $('next-stage').style.backgroundColor = ''; $('next-slide-label').textContent = 'Конец презентации'; }
   $('presenter-notes').textContent = slide.note || 'Для этого слайда заметок нет.';
   if (slide.type === 'word-cloud' && data.wordCloud.length) $('stage').append(window.renderWordCloud(data.wordCloud));

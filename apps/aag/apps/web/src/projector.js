@@ -126,6 +126,7 @@ async function refresh() {
       if (data.event.status !== 'active' && !video.paused) { video.dataset.resumePlayback = '1'; video.pause(); }
       else if (data.event.status === 'active' && video.dataset.resumePlayback) { delete video.dataset.resumePlayback; video.play().catch(() => {}); }
     });
+    window.applyTextStyles(box, data.slide);
     fitComposition(box, typography);
     $('message').textContent = fullscreenMessage;
   } catch (issue) { $('message').textContent = issue.message ?? 'Нет связи с сервером.'; }

@@ -1,3 +1,15 @@
+window.aagFonts = ['Manrope', 'Arial', 'Verdana', 'Georgia', 'Times New Roman', 'Courier New'];
+window.applyTextStyles = (root, slide) => {
+  root.style.containerType = 'inline-size';
+  for (const [key, selector] of Object.entries({ title: ':scope > h1, :scope > h2', body: ':scope > p', options: ':scope > ol, :scope > ul' })) {
+    const style = slide.textStyles?.[key];
+    for (const element of root.querySelectorAll(selector)) {
+      element.style.fontFamily = style ? `"${style.fontFamily}", sans-serif` : '';
+      element.style.fontSize = style ? `${style.fontSize / 16}cqw` : '';
+      element.style.fontWeight = style ? style.bold ? '700' : '400' : '';
+    }
+  }
+};
 window.renderSlideElements = function renderSlideElements(slide, { editable = false, playback = false, selectedIndex = -1, onSelect = () => {}, onChange = () => {}, backgroundSrc, aspectRatio = '16:9' } = {}) {
   const surface = document.createElement('div'); surface.className = 'element-slide';
   surface.style.aspectRatio = aspectRatio === '4:3' ? '4 / 3' : '16 / 9';
@@ -35,6 +47,7 @@ window.renderSlideElements = function renderSlideElements(slide, { editable = fa
       object.textContent = element.text;
       object.style.color = element.color;
       object.style.fontSize = `${element.fontSize / 16}cqw`;
+      object.style.fontFamily = `"${element.fontFamily || 'Manrope'}", sans-serif`;
       object.style.fontWeight = element.bold ? '700' : '400';
       object.style.fontStyle = element.italic ? 'italic' : 'normal';
       object.style.textAlign = element.align;

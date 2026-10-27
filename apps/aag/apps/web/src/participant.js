@@ -47,6 +47,7 @@ function stage(slide) {
   if (slide.body) { const body = document.createElement('p'); body.textContent = slide.body; box.append(body); }
   if (slide.bullets) { const list = document.createElement('ul'); slide.bullets.forEach((value) => { const item = document.createElement('li'); item.textContent = value; list.append(item); }); box.append(list); }
   if (questionSlide && slide.elements?.length) { const media = document.createElement('div'); media.className = 'question-media-preview'; media.append(window.renderSlideElements({ elements: slide.elements }, { aspectRatio: state.aspectRatio })); box.append(media); loadImages(media); }
+  window.applyTextStyles(box, slide);
 }
 function loadImages(box) {
   const expectedIndex = state.slideIndex;

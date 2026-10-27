@@ -74,6 +74,7 @@ function renderCanvas() {
     const media = document.createElement('div'); media.className = 'question-media-preview';
     media.append(window.renderSlideElements({ elements: slide.elements }, { editable: true, aspectRatio: material.aspectRatio, selectedIndex: selectedElement, onSelect: (index) => { selectedElement = index; box.querySelectorAll('.slide-object').forEach((item, itemIndex) => item.classList.toggle('selected', itemIndex === index)); renderFields(); }, onChange: () => { changed(); renderFields(); } })); box.append(media);
   }
+  window.applyTextStyles(box, slide);
 }
 function field(label, key, kind = 'input', help = '') {
   const wrapper = document.createElement('label'); wrapper.textContent = label;
@@ -127,6 +128,7 @@ function appendElementFields(box, slide) {
       }
       if (element.type === 'shape') { const label = document.createElement('label'); label.textContent = 'Фигура'; const select = document.createElement('select'); for (const [value, name] of [['rectangle', 'Прямоугольник'], ['ellipse', 'Эллипс']]) { const option = new Option(name, value); select.append(option); } select.value = element.shape || 'rectangle'; select.addEventListener('change', () => { element.shape = select.value; changed(); renderCanvas(); }); label.append(select); box.append(label); }
       if (element.type === 'text') {
+        box.append(fontPicker(element.fontFamily, (value) => { element.fontFamily = value; changed(); renderCanvas(); }));
         const bold = document.createElement('label'); const input = document.createElement('input'); input.type = 'checkbox'; input.checked = !!element.bold; bold.append(input, document.createTextNode(' Жирный текст')); input.addEventListener('change', () => { element.bold = input.checked; changed(); renderCanvas(); }); box.append(bold);
         const italic = document.createElement('label'); const italicInput = document.createElement('input'); italicInput.type = 'checkbox'; italicInput.checked = !!element.italic; italic.append(italicInput, document.createTextNode(' Курсив')); italicInput.addEventListener('change', () => { element.italic = italicInput.checked; changed(); renderCanvas(); }); box.append(italic);
         const alignment = document.createElement('label'); alignment.textContent = 'Выравнивание'; const select = document.createElement('select'); for (const [value, name] of [['left', 'Слева'], ['center', 'По центру'], ['right', 'Справа']]) { const option = document.createElement('option'); option.value = value; option.textContent = name; select.append(option); } select.value = element.align; select.addEventListener('change', () => { element.align = select.value; changed(); renderCanvas(); }); alignment.append(select); box.append(alignment);
@@ -134,6 +136,32 @@ function appendElementFields(box, slide) {
       const duplicate = document.createElement('button'); duplicate.type = 'button'; duplicate.textContent = 'Дублировать элемент'; duplicate.addEventListener('click', () => { if (slide.elements.length >= 40) return message('На слайде может быть не более 40 элементов.'); const copy = structuredClone(element); copy.id = crypto.randomUUID(); copy.x = Math.min(100 - copy.w, copy.x + 4); copy.y = Math.min(100 - copy.h, copy.y + 4); slide.elements.splice(selectedElement + 1, 0, copy); selectedElement++; changed(); render(); }); box.append(duplicate);
       const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = 'Удалить элемент'; remove.addEventListener('click', () => { slide.elements.splice(selectedElement, 1); selectedElement = -1; changed(); render(); }); box.append(remove);
     } else box.append(node('p', 'Выберите элемент на слайде или добавьте надпись/фигуру.'));
+}
+function fontPicker(value, update) {
+  const label = document.createElement('label'); label.textContent = 'Шрифт';
+  const select = document.createElement('select');
+  window.aagFonts.forEach((font) => select.append(new Option(font, font)));
+  select.value = value || 'Manrope';
+  select.addEventListener('change', () => update(select.value)); label.append(select); return label;
+}
+function textFormatting(box, slide) {
+  const section = document.createElement('fieldset'); section.className = 'text-formatting';
+  section.append(node('legend', 'Оформление текста'));
+  for (const [key, name, size, bold] of [['title', 'Заголовок / вопрос', 64, true], ['body', 'Основной текст', 32, false], ['options', 'Пункты / варианты ответа', 35, false]]) {
+    const row = document.createElement('div'); row.className = 'text-format-row'; row.append(node('strong', name));
+    const currentStyle = () => slide.textStyles?.[key] || { fontFamily: 'Manrope', fontSize: size, bold };
+    const update = (name, value) => { slide.textStyles ||= {}; slide.textStyles[key] = { ...currentStyle(), [name]: value }; changed(); renderCanvas(); };
+    row.append(fontPicker(currentStyle().fontFamily, (value) => update('fontFamily', value)));
+    const label = document.createElement('label'); label.textContent = 'Размер';
+    const input = document.createElement('input'); input.type = 'number'; input.min = '12'; input.max = '96'; input.value = currentStyle().fontSize;
+    input.addEventListener('change', () => { if (input.checkValidity() && input.value) update('fontSize', Number(input.value)); }); label.append(input); row.append(label);
+    const weight = document.createElement('label'), check = document.createElement('input'); check.type = 'checkbox'; check.checked = currentStyle().bold;
+    check.addEventListener('change', () => update('bold', check.checked)); weight.append(check, document.createTextNode(' Жирный')); row.append(weight);
+    section.append(row);
+  }
+  const reset = document.createElement('button'); reset.type = 'button'; reset.className = 'button-secondary'; reset.textContent = 'Вернуть стандартное оформление';
+  reset.addEventListener('click', () => { delete slide.textStyles; changed(); renderCanvas(); renderFields(); }); section.append(reset);
+  box.append(section);
 }
 function renderFields() {
   const slide = current(); const box = $(activeTab === 'interactive' ? 'question-fields' : 'fields'); box.replaceChildren();
@@ -152,6 +180,7 @@ function renderFields() {
     return;
   }
   box.append(field('Заголовок', 'title'), field('Метка над заголовком', 'eyebrow'), field('Текст', 'body', 'textarea'));
+  textFormatting(box, slide);
   if (!isQuestion(slide)) { const background = document.createElement('label'); background.textContent = 'Фон слайда'; const color = document.createElement('input'); color.type = 'color'; color.value = slide.background || '#006f37'; color.addEventListener('input', () => { slide.background = color.value; changed(); renderCanvas(); }); background.append(color); box.append(background); }
   if (['content', 'closing'].includes(slide.type)) box.append(field('Пункты — по одному на строку', 'bullets', 'textarea'));
   if (['quiz', 'multi-quiz', 'poll'].includes(slide.type)) box.append(field('Варианты — по одному на строку', 'options', 'textarea'));
@@ -256,6 +285,8 @@ function ensureElements() {
   slide.elements = [{ id: crypto.randomUUID(), type: 'text', x: 8, y: 18, w: 84, h: 20, text: slide.title, color: '#ffffff', fontSize: 52, bold: true, align: 'left' }];
   if (slide.body) slide.elements.push({ id: crypto.randomUUID(), type: 'text', x: 8, y: 48, w: 84, h: 30, text: slide.body, color: '#ffffff', fontSize: 28, bold: false, align: 'left' });
   if (slide.bullets?.length) slide.elements.push({ id: crypto.randomUUID(), type: 'text', x: 8, y: 52, w: 84, h: 35, text: slide.bullets.map((value) => `• ${value}`).join('\n'), color: '#ffffff', fontSize: 28, bold: false, align: 'left' });
+  const styles = [slide.textStyles?.title, ...(slide.body ? [slide.textStyles?.body] : []), ...(slide.bullets?.length ? [slide.textStyles?.options] : [])];
+  slide.elements.forEach((element, index) => { if (styles[index]) Object.assign(element, styles[index], { fontSize: Math.min(72, styles[index].fontSize) }); });
   return slide.elements;
 }
 $('add-text').addEventListener('click', () => { const elements = ensureElements(); const element = window.editorSlideTools.createElement('text'); if (current().type === 'imported') element.color = '#17251c'; elements.push(element); selectedElement = elements.length - 1; changed(); render(); });

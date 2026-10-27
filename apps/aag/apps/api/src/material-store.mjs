@@ -4,6 +4,8 @@ import { dirname } from 'node:path';
 import { normalizeVideoUrl } from './video-sources.mjs';
 
 const fail = (status, message) => { const issue = new Error(message); issue.status = status; throw issue; };
+const fonts = ['Manrope', 'Arial', 'Verdana', 'Georgia', 'Times New Roman', 'Courier New'];
+const font = (value) => { if (!fonts.includes(value)) fail(400, 'Выберите шрифт из списка.'); return value; };
 const cleanText = (value, limit, required = false) => {
   if (typeof value !== 'string') { if (required) fail(400, 'Заполните обязательные поля материала.'); return ''; }
   const text = value.trim();
@@ -29,6 +31,17 @@ export function validateMaterial(input) {
     const type = item.type;
     if (!['cover', 'content', 'closing', 'quiz', 'multi-quiz', 'poll', 'scale', 'text', 'word-cloud', 'imported'].includes(type)) fail(400, 'Неизвестный тип слайда.');
     const slide = { type, eyebrow: cleanText(item.eyebrow, 100), title: cleanText(item.title, 200, true), body: cleanText(item.body, 1500), note: cleanText(item.note, 1500) };
+    if (item.textStyles !== undefined) {
+      if (!item.textStyles || typeof item.textStyles !== 'object' || Array.isArray(item.textStyles)) fail(400, 'Некорректное оформление текста.');
+      slide.textStyles = {};
+      for (const key of ['title', 'body', 'options']) {
+        const style = item.textStyles[key];
+        if (style === undefined) continue;
+        if (!style || typeof style !== 'object' || Array.isArray(style)) fail(400, 'Некорректное оформление текста.');
+        if (typeof style.bold !== 'boolean') fail(400, 'Некорректное начертание текста.');
+        slide.textStyles[key] = { fontFamily: font(style.fontFamily), fontSize: boundedInt(style.fontSize, 12, 96, 32), bold: style.bold };
+      }
+    }
     const questionType = ['quiz', 'multi-quiz', 'poll', 'scale', 'text', 'word-cloud'].includes(type);
     if (item.statisticsChart !== undefined) {
       if (!['quiz', 'multi-quiz', 'poll', 'scale'].includes(type) || !['bar', 'pie'].includes(item.statisticsChart)) fail(400, 'Некорректный вид диаграммы.');
@@ -90,7 +103,7 @@ export function validateMaterial(input) {
         if (element.italic !== undefined && typeof element.italic !== 'boolean') fail(400, 'Некорректный стиль текста.');
         if (element.bold !== undefined && typeof element.bold !== 'boolean') fail(400, 'Некорректный стиль текста.');
         if (element.align !== undefined && !['left', 'center', 'right'].includes(element.align)) fail(400, 'Некорректное выравнивание текста.');
-        return { type: 'text', ...id, ...position, color, text, fontSize: boundedInt(element.fontSize, 12, 72, 28), bold: element.bold ?? false, ...(element.italic !== undefined ? { italic: element.italic } : {}), align: element.align ?? 'left' };
+        return { type: 'text', ...id, ...position, color, text, fontFamily: font(element.fontFamily ?? 'Manrope'), fontSize: boundedInt(element.fontSize, 12, 72, 28), bold: element.bold ?? false, ...(element.italic !== undefined ? { italic: element.italic } : {}), align: element.align ?? 'left' };
       });
     }
     if (['content', 'closing'].includes(type)) {
