@@ -122,7 +122,6 @@ async function refresh() {
     if (data.statistics) box.append(renderStatistics(data.slide, data.statistics));
     if (data.wordCloud.length) box.append(window.renderWordCloud(data.wordCloud));
     if (data.leaderboard?.length) { const rank = document.createElement('div'); rank.className = 'cloud'; rank.append(make('h2', 'Рейтинг')); data.leaderboard.forEach((person) => rank.append(make('span', `${person.place}. ${person.name} — ${person.points}`))); box.append(rank); }
-    $('progress').textContent = `${data.event.slideIndex + 1} / ${data.slideCount}`;
     $('code').textContent = data.event.code;
     $('count').textContent = `${data.participantCount} участников`;
     $('qr').src ||= `/aag/api/live/${eventId}/qr`;

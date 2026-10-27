@@ -14,7 +14,6 @@ main{height:100dvh;position:relative;overflow:hidden}
 .question-state{font-size:1.25cqw;font-weight:700;margin-top:1.2cqw;color:#f6e6b6}
 .projector-head{position:absolute;inset:0 0 auto;z-index:5;display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:8px 16px;background:linear-gradient(#003b2caa,transparent)}
 .academy-emblem{width:clamp(64px,6vw,100px);height:clamp(64px,6vw,100px);flex-shrink:0;object-fit:contain;border-radius:50%;margin-right:auto}
-.projector-head #progress{font-size:14px;font-weight:800;letter-spacing:.1em}
 .projector-head button{background:#fff;color:#006d35;border:0;border-radius:9px;padding:10px 14px;font:800 12px Manrope,Arial;cursor:pointer}
 .fullscreen-hint{position:absolute;top:120px;left:16px;z-index:6;margin:0;padding:8px 12px;background:#003b2ce8;border-radius:8px;font-size:12px}
 .projector-connect{position:absolute;right:12px;bottom:12px;z-index:4;display:flex;flex-direction:column;align-items:center;gap:5px;width:150px;padding:9px;border:1px solid #ffffff44;border-radius:15px;background:#003b2ce8;text-align:center}
@@ -23,11 +22,11 @@ main{height:100dvh;position:relative;overflow:hidden}
 .projector-connect img{width:78px;height:78px;background:#fff;padding:4px;border-radius:8px}
 .projector-connect span{font-size:11px;font-weight:700}
 .projector-connect p{display:none}
-.projector-head .projector-connect{position:static;display:grid;grid-template-columns:max-content 88px;grid-template-rows:auto auto auto;align-items:center;gap:0 8px;width:auto;max-width:none;min-width:190px;padding:5px 8px;text-align:left}
+.projector-head .projector-connect{position:static;display:grid;grid-template-columns:max-content 144px;grid-template-rows:auto auto auto;align-items:center;gap:0 8px;width:auto;max-width:none;min-width:265px;padding:5px 8px;text-align:left}
 .projector-head .projector-connect small{grid-column:1;grid-row:1;white-space:nowrap}
 .projector-head .projector-connect strong{grid-column:1;grid-row:2;font-size:20px;white-space:nowrap}
 .projector-head .projector-connect span{grid-column:1;grid-row:3;white-space:nowrap}
-.projector-head .projector-connect img{grid-column:2;grid-row:1/4;width:88px;height:88px}
+.projector-head .projector-connect img{grid-column:2;grid-row:1/4;width:144px;height:144px}
 #slide.projector-welcome{align-items:center;justify-content:center;text-align:center;gap:1.8cqw;padding:5cqw 8cqw}
 #slide.projector-welcome h1{font-size:clamp(18px,3.5cqw,68px);margin:0;max-width:85%;line-height:1.15}
 #slide .welcome-connect{position:static;width:auto;padding:0;border:0;background:none;gap:.6cqw}
@@ -68,8 +67,8 @@ main{height:100dvh;position:relative;overflow:hidden}
 #slide>.cloud-map{flex:1;min-height:0;margin:0}
 .cloud{display:flex;flex-wrap:wrap;gap:1cqw;align-items:center}
 .cloud span{font-size:1.8cqw;font-weight:800;color:#f6e6b6}
-@media(max-width:700px){.projector-head{padding:4px 8px;gap:5px}.academy-emblem{width:48px;height:48px}.projector-head #progress{font-size:10px}.projector-head button{font-size:9px;padding:6px 8px}.projector-connect{width:100px;right:5px;bottom:5px;gap:3px;padding:5px}.projector-connect img{width:48px;height:48px}.projector-connect strong{font-size:16px}.projector-connect small,.projector-connect span{font-size:8px}.fullscreen-hint{top:60px;font-size:10px}}
-@media(max-width:700px){.projector-head .projector-connect{position:absolute;top:54px;right:8px;bottom:auto;min-width:0;width:160px;grid-template-columns:1fr 70px;gap:0 5px;padding:5px}.projector-head .projector-connect img{width:70px;height:70px}.projector-head .projector-connect strong{font-size:16px}.projector-head .projector-connect span{font-size:8px}}
+@media(max-width:700px){.projector-head{padding:4px 8px;gap:5px}.academy-emblem{width:48px;height:48px}.projector-head button{font-size:9px;padding:6px 8px}.projector-connect{width:100px;right:5px;bottom:5px;gap:3px;padding:5px}.projector-connect img{width:48px;height:48px}.projector-connect strong{font-size:16px}.projector-connect small,.projector-connect span{font-size:8px}.fullscreen-hint{top:60px;font-size:10px}}
+@media(max-width:700px){.projector-head .projector-connect{position:absolute;top:54px;right:8px;bottom:auto;min-width:0;width:205px;grid-template-columns:1fr 96px;gap:0 5px;padding:5px}.projector-head .projector-connect img{width:96px;height:96px}.projector-head .projector-connect strong{font-size:16px}.projector-head .projector-connect span{font-size:8px}}
 .projector-question-media{grid-column:2;grid-row:4;align-self:center;container-type:size;display:flex;align-items:center;justify-content:center;width:100%;height:100%;min-width:0;min-height:0}
 .projector-question-media .element-slide{flex:none;width:min(100%,177.777cqh);height:auto;aspect-ratio:16/9}
 #slide.projector-with-media.projector-with-statistics>.projector-question-media{align-self:start;height:43%}
