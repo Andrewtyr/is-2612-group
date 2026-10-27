@@ -97,7 +97,7 @@ async function refresh() {
     box.style.setProperty('--options-size', `${typography.options}cqw`);
     box.classList.toggle('projector-with-statistics', !!data.statistics);
     box.classList.toggle('projector-statistics-centered', !!data.statistics && data.slide.statisticsPlacement === 'center');
-    box.classList.toggle('projector-with-media', isQuestion && !!data.slide.elements?.length);
+    box.classList.toggle('projector-with-media', isQuestion && !!data.slide.elements?.some((element) => ['image', 'video'].includes(element.type)));
     box.classList.toggle('projector-with-cloud', !!data.wordCloud.length);
     box.classList.toggle('projector-element-slide', elementSlide);
     window.applySlideAppearance(box, data.slide, '16:9');
@@ -113,7 +113,8 @@ async function refresh() {
       if (data.slide.body) box.append(make('p', data.slide.body));
       const values = data.slide.options ?? data.slide.bullets;
       if (values) { const list = document.createElement(data.slide.options ? 'ol' : 'ul'); values.forEach((value) => list.append(make('li', value))); box.append(list); }
-      if (isQuestion && data.slide.elements?.length) { const media = document.createElement('div'); media.className = 'projector-question-media'; media.append(window.renderSlideElements({ elements: data.slide.elements }, { aspectRatio: '16:9', playback: true })); box.append(media); }
+      if (isQuestion && data.slide.elements?.some((element) => ['image', 'video'].includes(element.type))) { const media = document.createElement('div'); media.className = 'projector-question-media'; media.append(window.renderSlideElements({ elements: data.slide.elements.filter((element) => ['image', 'video'].includes(element.type)) }, { aspectRatio: '16:9', playback: true })); box.append(media); }
+      if (isQuestion && data.slide.elements?.some((element) => ['text', 'shape'].includes(element.type))) box.append(window.renderQuestionOverlay(data.slide, { aspectRatio: '16:9' }));
     }
     }
     if (!welcome && connection.parentElement !== document.querySelector('.projector-layout')) document.querySelector('.projector-layout').append(connection);

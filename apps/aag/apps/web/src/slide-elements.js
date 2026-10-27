@@ -88,3 +88,13 @@ window.renderSlideElements = function renderSlideElements(slide, { editable = fa
   });
   return surface;
 };
+window.renderQuestionOverlay = function renderQuestionOverlay(slide, options = {}) {
+  const indexes = (slide.elements ?? []).map((element, index) => ['text', 'shape'].includes(element.type) ? index : -1).filter((index) => index >= 0);
+  const overlay = document.createElement('div'); overlay.className = 'question-slide-overlay';
+  overlay.append(window.renderSlideElements({ elements: indexes.map((index) => slide.elements[index]) }, {
+    ...options,
+    selectedIndex: indexes.indexOf(options.selectedIndex),
+    onSelect: (index) => options.onSelect?.(indexes[index]),
+  }));
+  return overlay;
+};

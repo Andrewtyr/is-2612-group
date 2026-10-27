@@ -64,7 +64,7 @@ export function validateMaterial(input) {
       if (!questionType || typeof item.showPoints !== 'boolean') fail(400, 'Некорректная настройка баллов.');
       slide.showPoints = item.showPoints;
     }
-    if (['cover', 'content', 'closing'].includes(type) && item.background !== undefined) {
+    if ((['cover', 'content', 'closing'].includes(type) || questionType) && item.background !== undefined) {
       if (typeof item.background !== 'string' || !/^#[0-9a-f]{6}$/i.test(item.background)) fail(400, 'Некорректный фон слайда.');
       slide.background = item.background;
     }
@@ -77,7 +77,6 @@ export function validateMaterial(input) {
       if (!Array.isArray(item.elements) || item.elements.length > 40) fail(400, 'На слайде может быть не более 40 элементов.');
       slide.elements = item.elements.map((element) => {
         if (!element || !['text', 'shape', 'image', 'video'].includes(element.type)) fail(400, 'Недопустимый элемент слайда.');
-        if (questionType && !['image', 'video'].includes(element.type)) fail(400, 'В вопрос можно добавить изображение или видео.');
         let id = {};
         if (element.id !== undefined) {
           if (typeof element.id !== 'string' || !/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(element.id)) fail(400, 'Некорректный идентификатор элемента.');

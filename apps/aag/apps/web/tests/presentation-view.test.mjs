@@ -56,3 +56,17 @@ test('projector keeps the same video slide while live counters update', () => {
   assert.notEqual(view.projectorRenderKey(data), view.projectorRenderKey({ ...data, event: { slideIndex: 3 } }));
   assert.ok(view.projectorTypography({ title: 'Вопрос'.repeat(30), options: Array(6).fill('Длинный вариант '.repeat(15)) }).options < view.projectorTypography({ title: 'Вопрос', options: ['Да', 'Нет'] }).options);
 });
+
+test('question overlay keeps text and shape on the full slide with original selection indexes', () => {
+  const context = { window: {}, document: { createElement: () => ({ append(child) { this.child = child; } }) } };
+  vm.runInNewContext(readFileSync(resolve('src', 'slide-elements.js'), 'utf8'), context);
+  let selected = -1;
+  context.window.renderSlideElements = (slide, options) => ({ slide, options });
+  const slide = { elements: [{ type: 'image' }, { type: 'text' }, { type: 'video' }, { type: 'shape' }] };
+  const overlay = context.window.renderQuestionOverlay(slide, { selectedIndex: 3, onSelect: (index) => { selected = index; } });
+  assert.equal(overlay.className, 'question-slide-overlay');
+  assert.deepEqual(overlay.child.slide.elements.map((element) => element.type), ['text', 'shape']);
+  assert.equal(overlay.child.options.selectedIndex, 1);
+  overlay.child.options.onSelect(0);
+  assert.equal(selected, 1);
+});

@@ -21,6 +21,22 @@ test('question statistics placement survives saving and rejects unknown position
   } finally { store.close(); rmSync(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
 });
 
+test('an interactive slide preserves its background and editable text and shape', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'aag-question-design-'));
+  const store = createMaterialStore(join(directory, 'materials.sqlite'), { title: 'Образец', slides: [{ type: 'cover', title: 'Начало' }] });
+  try {
+    const slide = { type: 'poll', title: 'Вопрос', options: ['Да', 'Нет'], background: '#006f37', statisticsPlacement: 'center', elements: [
+      { type: 'text', x: 10, y: 10, w: 30, h: 10, text: 'Подсказка', color: '#ffffff', fontSize: 28 },
+      { type: 'shape', x: 50, y: 10, w: 12, h: 12, color: '#f2ca70', shape: 'ellipse' },
+    ] };
+    const saved = store.create({ title: 'Опрос', slides: [slide] }, 1);
+    const loaded = store.get(saved.id, 1).slides[0];
+    assert.equal(loaded.background, slide.background);
+    assert.equal(loaded.statisticsPlacement, 'center');
+    assert.deepEqual(loaded.elements.map((element) => element.type), ['text', 'shape']);
+  } finally { store.close(); rmSync(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
+});
+
 test('an interactive slide keeps a selected PDF or PPTX page as its template', () => {
   const template = { importId: '123e4567-e89b-42d3-a456-426614174000', page: 2 };
   const material = validateMaterial({ title: 'Опрос', slides: [{ type: 'poll', title: 'Вопрос', options: ['Да', 'Нет'], template }] });

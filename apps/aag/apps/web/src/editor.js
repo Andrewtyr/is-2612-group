@@ -83,6 +83,7 @@ function renderCanvas() {
   box.classList.toggle('canvas-question-layout', isQuestion(slide) && (chart || !!slide.elements?.length));
   box.classList.toggle('canvas-question-centered', chart && slide.statisticsPlacement === 'center');
   box.style.removeProperty('background');
+  box.style.backgroundImage = ''; box.style.backgroundSize = ''; box.style.backgroundPosition = '';
   box.style.aspectRatio = material.aspectRatio === '4:3' ? '4 / 3' : '16 / 9';
   if (slide.type === 'imported' || (slide.elements && !isQuestion(slide))) {
     box.replaceChildren(window.renderSlideElements(slide, { editable: true, aspectRatio: material.aspectRatio, selectedIndex: selectedElement,
@@ -102,9 +103,10 @@ function renderCanvas() {
   if (values?.length) { const list = document.createElement(slide.options ? 'ol' : 'ul'); values.forEach((value, index) => list.append(slide.options ? editableCanvasText(node('li', value), slide, 'options', index) : node('li', value))); box.append(list); }
   if (slide.type === 'scale') box.append(node('p', `Оценка от 1 до ${slide.maxValue}`));
   const side = document.createElement('div'); side.className = 'canvas-question-side';
-  if (isQuestion(slide) && slide.elements?.length) {
+  const mediaIndexes = (slide.elements ?? []).map((element, index) => ['image', 'video'].includes(element.type) ? index : -1).filter((index) => index >= 0);
+  if (isQuestion(slide) && mediaIndexes.length) {
     const media = document.createElement('div'); media.className = 'question-media-preview';
-    media.append(window.renderSlideElements({ elements: slide.elements }, { editable: true, aspectRatio: material.aspectRatio, selectedIndex: selectedElement, onSelect: (index) => { selectedElement = index; box.querySelectorAll('.slide-object').forEach((item, itemIndex) => item.classList.toggle('selected', itemIndex === index)); renderFields(); }, onChange: () => { changed(); renderFields(); } })); side.append(media);
+    media.append(window.renderSlideElements({ elements: mediaIndexes.map((index) => slide.elements[index]) }, { editable: true, aspectRatio: material.aspectRatio, selectedIndex: mediaIndexes.indexOf(selectedElement), onSelect: (index) => { selectedElement = mediaIndexes[index]; box.querySelectorAll('.slide-object').forEach((item) => item.classList.remove('selected')); media.querySelectorAll('.slide-object')[index]?.classList.add('selected'); renderFields(); }, onChange: () => { changed(); renderFields(); } })); side.append(media);
   }
   if (chart) {
     const preview = document.createElement('aside'); preview.className = 'canvas-statistics-preview';
@@ -114,6 +116,9 @@ function renderCanvas() {
     side.append(preview);
   }
   if (side.childElementCount) box.append(side);
+  if (isQuestion(slide) && slide.elements?.some((element) => ['text', 'shape'].includes(element.type))) {
+    box.append(window.renderQuestionOverlay(slide, { editable: true, aspectRatio: material.aspectRatio, selectedIndex: selectedElement, onSelect: (index) => { selectedElement = index; box.querySelectorAll('.slide-object').forEach((item) => item.classList.remove('selected')); const overlayIndex = slide.elements.slice(0, index + 1).filter((element) => ['text', 'shape'].includes(element.type)).length - 1; box.querySelectorAll('.question-slide-overlay .slide-object')[overlayIndex]?.classList.add('selected'); renderFields(); }, onChange: () => { changed(); renderFields(); } }));
+  }
   window.applyTextStyles(box, slide);
 }
 function field(label, key, kind = 'input', help = '') {
@@ -264,6 +269,7 @@ function renderFields() {
   box.append(field('Заголовок', 'title'), field('Метка над заголовком', 'eyebrow'), field('Текст', 'body', 'textarea'));
   textFormatting(box, slide);
   if (isQuestion(slide)) box.append(questionTemplatePicker(slide));
+  if (isQuestion(slide)) { const background = document.createElement('label'); background.textContent = 'Фон слайда'; const color = document.createElement('input'); color.type = 'color'; color.value = slide.background || '#006f37'; color.addEventListener('input', () => { slide.background = color.value; changed(); renderCanvas(); }); background.append(color); box.append(background); }
   if (!isQuestion(slide)) { const background = document.createElement('label'); background.textContent = 'Фон слайда'; const color = document.createElement('input'); color.type = 'color'; color.value = slide.background || '#006f37'; color.addEventListener('input', () => { slide.background = color.value; changed(); renderCanvas(); }); background.append(color); box.append(background); }
   if (['content', 'closing'].includes(slide.type)) box.append(field('Пункты — по одному на строку', 'bullets', 'textarea'));
   if (['quiz', 'multi-quiz', 'poll'].includes(slide.type)) box.append(field('Варианты — по одному на строку', 'options', 'textarea'));
@@ -306,7 +312,7 @@ function render() {
   $('undo-button').disabled = !undoStack.length; $('redo-button').disabled = !redoStack.length;
   $('question-up').disabled = !question || selected === 0; $('question-down').disabled = !question || selected === material.slides.length - 1;
   $('question-overview').replaceChildren(question ? node('h2', current().title) : node('p', 'В этом материале пока нет вопросов.'));
-  for (const id of ['question-add-image', 'question-add-video', 'question-add-video-link']) $(id).disabled = !question;
+  for (const id of ['question-add-text', 'question-add-shape', 'question-add-image', 'question-add-video', 'question-add-video-link']) $(id).disabled = !question;
 }
 function startEditing() { $('login-panel').hidden = true; $('editor-panel').hidden = false; $('material-title').value = material.title; $('material-audience').value = material.audience || ''; $('material-description').value = material.description || ''; $('aspect-ratio').value = material.aspectRatio || '16:9'; $('page-heading').textContent = material.title; $('save-status').textContent = materialId ? `Сохранено · версия ${material.version}` : 'Новый материал'; lastSnapshot = JSON.stringify(material); render(); }
 async function load() { if (materialId) material = (await api(`/aag/api/materials/${materialId}`)).material; templateImports = (await api('/aag/api/imports')).imports; startEditing(); }
@@ -383,6 +389,8 @@ function ensureElements() {
 }
 $('add-text').addEventListener('click', () => { const elements = ensureElements(); const element = window.editorSlideTools.createElement('text'); if (current().type === 'imported') element.color = '#17251c'; elements.push(element); selectedElement = elements.length - 1; changed(); render(); });
 $('add-shape').addEventListener('click', () => { const elements = ensureElements(); elements.push(window.editorSlideTools.createElement('shape')); selectedElement = elements.length - 1; changed(); render(); });
+$('question-add-text').addEventListener('click', () => { const elements = ensureElements(); if (elements.length >= 40) return message('На слайде может быть не более 40 элементов.'); elements.push(window.editorSlideTools.createElement('text')); selectedElement = elements.length - 1; changed(); render(); });
+$('question-add-shape').addEventListener('click', () => { const elements = ensureElements(); if (elements.length >= 40) return message('На слайде может быть не более 40 элементов.'); elements.push(window.editorSlideTools.createElement('shape')); selectedElement = elements.length - 1; changed(); render(); });
 async function uploadMedia(file, replacement = null) {
   const contentType = file.type || ({ png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', mp4: 'video/mp4', webm: 'video/webm' }[file.name.split('.').pop().toLowerCase()]);
   const video = ['video/mp4', 'video/webm'].includes(contentType);
