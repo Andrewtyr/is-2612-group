@@ -40,7 +40,7 @@ services:
       PORT: 8000
       HOST: 0.0.0.0
       BASE_PATH: /cyber-safe
-      PUBLIC_ORIGIN: https://is2612.ru
+      PUBLIC_ORIGIN: ${SITE_ORIGIN:-https://is2612.ru}
       DATA_DIR: /app/data
     volumes:
       - cyber_safe_data:/app/data
@@ -65,7 +65,7 @@ services:
       PORT: 4180
       NODE_ENV: production
       TRUST_PROXY: '1'
-      PUBLIC_BASE_URL: https://is2612.ru/aag/
+      PUBLIC_BASE_URL: ${SITE_ORIGIN:-https://is2612.ru}/aag/
       AAG_DB_PATH: /data/aag.sqlite
       AAG_UPLOAD_DIR: /data/uploads
       AAG_BACKUP_DIR: /data/backups

@@ -37,7 +37,7 @@ export function backupApplication(source, uploads, destinationDirectory, bannedW
     }
     const hasAssets = copy.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='assets'").get();
     if (hasAssets) for (const asset of copy.prepare('SELECT id,extension FROM assets').all()) {
-      if (!/^[a-f0-9-]{36}$/.test(asset.id) || !['.png', '.jpg'].includes(asset.extension)) throw new Error('Некорректная запись изображения.');
+      if (!/^[a-f0-9-]{36}$/.test(asset.id) || !['.png', '.jpg', '.mp4', '.webm'].includes(asset.extension)) throw new Error('Некорректная запись медиафайла.');
       const targetDirectory = join(destinationDirectory, 'uploads', 'assets');
       mkdirSync(targetDirectory, { recursive: true });
       copyFileSync(join(uploads, 'assets', asset.id + asset.extension), join(targetDirectory, asset.id + asset.extension));

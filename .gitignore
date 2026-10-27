@@ -5,6 +5,7 @@ dist/
 coverage/
 tmp/
 backups/
+transfer-bundles/
 uploads/
 .env
 .env.*

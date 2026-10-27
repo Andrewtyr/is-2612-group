@@ -128,7 +128,7 @@ export default function Home() {
             <p className="error">
               Для входа откройте сайт по HTTPS. Сейчас адрес сервера открыт по
               HTTP, поэтому вход не сохраняется. После настройки домена
-              используйте https://is2612.ru.
+              используйте адрес сайта с HTTPS.
             </p>
           ) : (
             <form onSubmit={signIn}>
