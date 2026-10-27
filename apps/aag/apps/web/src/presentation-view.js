@@ -7,6 +7,10 @@ window.applySlideAppearance = (root, slide, aspectRatio = '16:9') => {
   root.style.backgroundRepeat = slide.template ? 'no-repeat' : '';
 };
 
+window.applySlideTextPosition = (root, slide) => {
+  root.style.setProperty('--slide-text-offset', `${(slide.textOffsetY ?? 0) * 0.5625}cqw`);
+};
+
 window.participantRenderKey = (data) => [
   data.slideIndex,
   data.question?.deadline,

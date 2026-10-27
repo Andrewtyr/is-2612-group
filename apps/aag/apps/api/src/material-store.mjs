@@ -43,6 +43,10 @@ export function validateMaterial(input) {
       }
     }
     const questionType = ['quiz', 'multi-quiz', 'poll', 'scale', 'text', 'word-cloud'].includes(type);
+    if (item.textOffsetY !== undefined) {
+      if (!questionType || !Number.isInteger(item.textOffsetY) || item.textOffsetY < -12 || item.textOffsetY > 12) fail(400, 'Некорректное положение текста на слайде.');
+      slide.textOffsetY = item.textOffsetY;
+    }
     if (item.template !== undefined) {
       const template = item.template;
       if (!questionType || !template || typeof template.importId !== 'string' || !/^[a-f0-9-]{36}$/.test(template.importId) || !Number.isInteger(template.page) || template.page < 1 || template.page > 100) fail(400, 'Некорректный шаблон интерактивного слайда.');

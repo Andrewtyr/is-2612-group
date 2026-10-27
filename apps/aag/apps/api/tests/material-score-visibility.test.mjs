@@ -10,6 +10,13 @@ test('material keeps score visibility on a poll slide', () => {
   assert.equal(material.slides[0].showPoints, false);
 });
 
+test('question text position is saved and limited to a small vertical adjustment', () => {
+  const material = validateMaterial({ title: 'Опрос', slides: [{ type: 'poll', title: 'Вопрос', options: ['Да', 'Нет'], textOffsetY: -8 }] });
+  assert.equal(material.slides[0].textOffsetY, -8);
+  assert.throws(() => validateMaterial({ title: 'Опрос', slides: [{ type: 'poll', title: 'Вопрос', options: ['Да', 'Нет'], textOffsetY: 30 }] }), /положени/i);
+  assert.throws(() => validateMaterial({ title: 'Опрос', slides: [{ type: 'poll', title: 'Вопрос', options: ['Да', 'Нет'], textOffsetY: '8' }] }), /положени/i);
+});
+
 test('question statistics placement survives saving and rejects unknown positions', () => {
   const directory = mkdtempSync(join(tmpdir(), 'aag-statistics-placement-'));
   const store = createMaterialStore(join(directory, 'materials.sqlite'), { title: 'Образец', slides: [{ type: 'cover', title: 'Начало' }] });

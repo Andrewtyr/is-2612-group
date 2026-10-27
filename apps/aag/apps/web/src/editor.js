@@ -85,6 +85,7 @@ function renderCanvas() {
   box.style.removeProperty('background');
   box.style.backgroundImage = ''; box.style.backgroundSize = ''; box.style.backgroundPosition = '';
   box.style.aspectRatio = material.aspectRatio === '4:3' ? '4 / 3' : '16 / 9';
+  window.applySlideTextPosition(box, slide);
   if (slide.type === 'imported' || (slide.elements && !isQuestion(slide))) {
     box.replaceChildren(window.renderSlideElements(slide, { editable: true, aspectRatio: material.aspectRatio, selectedIndex: selectedElement,
       onSelect: (index) => { selectedElement = index; box.querySelectorAll('.slide-object').forEach((item, itemIndex) => item.classList.toggle('selected', itemIndex === index)); renderFields(); },
@@ -268,6 +269,14 @@ function renderFields() {
   }
   box.append(field('Заголовок', 'title'), field('Метка над заголовком', 'eyebrow'), field('Текст', 'body', 'textarea'));
   textFormatting(box, slide);
+  if (isQuestion(slide)) {
+    const label = document.createElement('label');
+    const value = node('span', `${slide.textOffsetY ?? 0}%`);
+    label.append(document.createTextNode('Сдвиг текста вверх / вниз '), value);
+    const input = document.createElement('input'); input.type = 'range'; input.min = '-12'; input.max = '12'; input.step = '1'; input.value = String(slide.textOffsetY ?? 0);
+    input.addEventListener('input', () => { slide.textOffsetY = Number(input.value); value.textContent = `${slide.textOffsetY}%`; changed(); renderCanvas(); });
+    label.append(input); box.append(label);
+  }
   if (isQuestion(slide)) box.append(questionTemplatePicker(slide));
   if (isQuestion(slide)) { const background = document.createElement('label'); background.textContent = 'Фон слайда'; const color = document.createElement('input'); color.type = 'color'; color.value = slide.background || '#006f37'; color.addEventListener('input', () => { slide.background = color.value; changed(); renderCanvas(); }); background.append(color); box.append(background); }
   if (!isQuestion(slide)) { const background = document.createElement('label'); background.textContent = 'Фон слайда'; const color = document.createElement('input'); color.type = 'color'; color.value = slide.background || '#006f37'; color.addEventListener('input', () => { slide.background = color.value; changed(); renderCanvas(); }); background.append(color); box.append(background); }

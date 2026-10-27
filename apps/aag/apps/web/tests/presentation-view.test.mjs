@@ -22,6 +22,15 @@ test('legacy slide keeps its background and presentation ratio', () => {
   assert.equal(root.style.aspectRatio, '16 / 9');
 });
 
+test('question text offset uses slide height and resets for the next slide', () => {
+  const root = { style: { setProperty(name, value) { this[name] = value; } } };
+  const view = load('presentation-view.js');
+  view.applySlideTextPosition(root, { type: 'poll', textOffsetY: -8 });
+  assert.equal(root.style['--slide-text-offset'], '-4.5cqw');
+  view.applySlideTextPosition(root, { type: 'poll' });
+  assert.equal(root.style['--slide-text-offset'], '0cqw');
+});
+
 test('interactive template is shown behind the question and removed on the next slide', () => {
   const view = load('presentation-view.js');
   const root = { style: {} };

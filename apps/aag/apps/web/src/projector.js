@@ -101,6 +101,7 @@ async function refresh() {
     box.classList.toggle('projector-with-cloud', !!data.wordCloud.length);
     box.classList.toggle('projector-element-slide', elementSlide);
     window.applySlideAppearance(box, data.slide, '16:9');
+    window.applySlideTextPosition(box, data.slide);
     if (nextKey !== slideRenderKey) {
     slideRenderKey = nextKey;
     if (welcome) {
