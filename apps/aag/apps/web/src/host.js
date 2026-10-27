@@ -27,7 +27,8 @@ function appendSlide(parent, slide, aspectRatio = '16:9') {
   if (slide.body) { const p = document.createElement('p'); p.textContent = slide.body; parent.append(p); }
   const values = slide.options ?? slide.bullets;
   if (values) { const list = document.createElement(slide.options ? 'ol' : 'ul'); for (const value of values) { const item = document.createElement('li'); item.textContent = value; list.append(item); } parent.append(list); }
-  if (questionSlide && slide.elements?.length) { const media = document.createElement('div'); media.className = 'question-media-preview'; media.append(window.renderSlideElements({ elements: slide.elements }, { aspectRatio })); parent.append(media); }
+  if (questionSlide && slide.elements?.some((element) => ['image', 'video'].includes(element.type))) { const media = document.createElement('div'); media.className = 'question-media-preview'; media.append(window.renderSlideElements({ elements: slide.elements.filter((element) => ['image', 'video'].includes(element.type)) }, { aspectRatio })); parent.append(media); }
+  if (questionSlide && slide.elements?.some((element) => ['text', 'shape'].includes(element.type))) parent.append(window.renderQuestionOverlay(slide, { aspectRatio }));
 }
 function render(data) {
   state = data; setPanels('host-panel');
