@@ -23,6 +23,13 @@ main{height:100dvh;position:relative;overflow:hidden}
 .projector-connect img{width:78px;height:78px;background:#fff;padding:4px;border-radius:8px}
 .projector-connect span{font-size:11px;font-weight:700}
 .projector-connect p{display:none}
+#slide.projector-welcome{align-items:center;justify-content:center;text-align:center;gap:1.8cqw;padding:5cqw 8cqw}
+#slide.projector-welcome h1{font-size:clamp(18px,3.5cqw,68px);margin:0;max-width:85%;line-height:1.15}
+#slide .welcome-connect{position:static;width:auto;padding:0;border:0;background:none;gap:.6cqw}
+#slide .welcome-connect img{width:19cqw;height:19cqw;padding:.7cqw;border-radius:1cqw;order:0}
+#slide .welcome-connect strong{font-size:2cqw;order:1;color:#f2ca70}
+#slide .welcome-connect span{font-size:1cqw;order:2}
+#slide .welcome-connect small,#slide .welcome-connect p{display:none}
 #message{position:absolute;bottom:0;left:16px;z-index:6;color:#ffe6c0;font-size:12px}
 #slide.projector-element-slide{padding:0}
 #slide.projector-element-slide .element-slide{height:100%;width:100%}

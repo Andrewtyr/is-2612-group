@@ -169,7 +169,7 @@ export function createApiServer({ store, materialStore, liveStore, importStore, 
           if (!['admin', 'host'].includes(session.user.role)) error(403, 'Требуются права ведущего.');
           const data = req.headers['content-type']?.includes('application/json') ? await body(req) : {};
           const selectedMaterial = data.materialId && materialStore ? materialStore.get(Number(data.materialId), session.user.id) : undefined;
-          return json(res, 201, { event: liveStore.start(session.user.id, selectedMaterial, data) });
+          return json(res, 201, { event: liveStore.start(session.user.id, selectedMaterial, { ...data, welcomeScreen: true }) });
         }
         const hideRoute = liveStore && /^\/api\/live\/(\d+)\/answers\/(\d+)\/hide$/.exec(path);
         if (hideRoute && method === 'POST') {

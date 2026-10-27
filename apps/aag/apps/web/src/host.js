@@ -23,6 +23,7 @@ function appendSlide(parent, slide, aspectRatio = '16:9') {
   const small = document.createElement('small'); small.textContent = slide.eyebrow;
   const title = document.createElement('h2'); title.textContent = slide.title;
   parent.append(small, title);
+  if (slide.welcomeScreen) { const qr = document.createElement('img'); qr.src = `/aag/api/live/${eventId}/qr`; qr.alt = 'QR-код подключения'; qr.style.cssText = 'width:120px;height:120px;background:white;padding:6px;align-self:center'; parent.append(qr); }
   if (slide.body) { const p = document.createElement('p'); p.textContent = slide.body; parent.append(p); }
   const values = slide.options ?? slide.bullets;
   if (values) { const list = document.createElement(slide.options ? 'ol' : 'ul'); for (const value of values) { const item = document.createElement('li'); item.textContent = value; list.append(item); } parent.append(list); }

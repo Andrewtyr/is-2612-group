@@ -78,10 +78,14 @@ async function refresh() {
     const response = await fetch(`/aag/api/live/${eventId}/projector`, { credentials: 'same-origin' });
     const data = await response.json(); if (!response.ok) throw new Error(data.error);
     const box = $('slide');
+    const welcome = !!data.slide.welcomeScreen;
     const isQuestion = ['quiz', 'multi-quiz', 'poll', 'scale', 'text', 'word-cloud'].includes(data.slide.type);
     const elementSlide = data.slide.type === 'imported' || (!isQuestion && !!data.slide.elements);
     const connection = document.querySelector('.projector-connect');
-    connection.hidden = qrPreference === null ? !!data.question || !!data.slide.elements?.some((element) => element.type === 'video') : !qrPreference;
+    box.classList.toggle('projector-welcome', welcome);
+    connection.classList.toggle('welcome-connect', welcome);
+    connectionButton.hidden = welcome;
+    connection.hidden = welcome ? false : qrPreference === null ? !!data.question || !!data.slide.elements?.some((element) => element.type === 'video') : !qrPreference;
     connectionButton.textContent = connection.hidden ? 'Показать QR' : 'Скрыть QR';
     const nextKey = window.projectorRenderKey(data);
     const typography = window.projectorTypography(data.slide);
@@ -94,7 +98,11 @@ async function refresh() {
     window.applySlideAppearance(box, data.slide, '16:9');
     if (nextKey !== slideRenderKey) {
     slideRenderKey = nextKey;
-    if (elementSlide) box.replaceChildren(window.renderSlideElements(data.slide, { aspectRatio: '16:9', playback: true }));
+    if (welcome) {
+      box.replaceChildren(make('h1', data.event.title));
+      box.append(connection);
+    }
+    else if (elementSlide) box.replaceChildren(window.renderSlideElements(data.slide, { aspectRatio: '16:9', playback: true }));
     else {
       box.replaceChildren(make('small', data.slide.eyebrow || 'ЗАНЯТИЕ ИЛИ МЕРОПРИЯТИЕ'), make('h1', data.slide.title));
       if (data.slide.body) box.append(make('p', data.slide.body));
@@ -103,6 +111,7 @@ async function refresh() {
       if (isQuestion && data.slide.elements?.length) { const media = document.createElement('div'); media.className = 'projector-question-media'; media.append(window.renderSlideElements({ elements: data.slide.elements }, { aspectRatio: '16:9', playback: true })); box.append(media); }
     }
     }
+    if (!welcome && connection.parentElement !== document.querySelector('.projector-layout')) document.querySelector('.projector-layout').append(connection);
     box.querySelectorAll(':scope > .projector-statistics, :scope > .cloud-map, :scope > .cloud, :scope > .question-state').forEach((item) => item.remove());
     if (data.statistics) box.append(renderStatistics(data.slide, data.statistics));
     if (data.wordCloud.length) box.append(window.renderWordCloud(data.wordCloud));

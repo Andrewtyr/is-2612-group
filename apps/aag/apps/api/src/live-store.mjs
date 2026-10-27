@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { createHash, randomBytes, randomInt } from 'node:crypto';
+import { withWelcomeSlide } from './session-material.mjs';
 
 const tokenHash = (token) => createHash('sha256').update(token).digest('hex');
 const fail = (status, message) => { const issue = new Error(message); issue.status = status; throw issue; };
@@ -87,6 +88,7 @@ export function createLiveStore(path, material, now = () => Date.now(), { maxPar
       const category = String(options.category ?? '').trim();
       if (!title || title.length > 150 || category.length > 100) fail(400, 'Проверьте название и категорию мероприятия.');
       if (options.ratingEnabled !== undefined && typeof options.ratingEnabled !== 'boolean') fail(400, 'Некорректная настройка рейтинга.');
+      if (options.welcomeScreen) selectedMaterial = withWelcomeSlide(selectedMaterial, title);
       for (let attempt = 0; attempt < 20; attempt++) {
         const code = String(randomInt(100000, 1000000));
         if (db.prepare("SELECT id FROM live_events WHERE code=? AND status='active'").get(code)) continue;
@@ -123,7 +125,7 @@ export function createLiveStore(path, material, now = () => Date.now(), { maxPar
       if (!['quiz', 'multi-quiz', 'poll', 'scale', 'text', 'word-cloud'].includes(slide.type)) fail(409, 'На этом слайде нет вопроса.');
       if (question(id, row.slide_index)) fail(409, 'Вопрос уже открывался в этом запуске.');
       const duration = slide.timeSeconds ?? 30;
-      db.prepare('INSERT INTO live_questions(event_id,slide_index,opened_at,deadline,statistics_visible) VALUES(?,?,?,?,?)').run(id, row.slide_index, now(), now() + duration * 1000, slide.showStatistics ? 1 : 0);
+      db.prepare('INSERT INTO live_questions(event_id,slide_index,opened_at,deadline,statistics_visible) VALUES(?,?,?,?,?)').run(id, row.slide_index, now(), now() + duration * 1000, 1);
       return this.getHost(id, hostId);
     },
     setStatisticsVisibility(id, hostId, show) {
@@ -266,7 +268,7 @@ export function createLiveStore(path, material, now = () => Date.now(), { maxPar
       const eventMaterial = materialFor(row);
       const { correctIndex, correctIndices, note, ...slide } = eventMaterial.slides[row.slide_index];
       const q = question(id, row.slide_index);
-      return { event: publicEvent(row), slide, aspectRatio: eventMaterial.aspectRatio || '16:9', slideCount: eventMaterial.slides.length, participantCount: db.prepare('SELECT count(*) AS n FROM live_participants WHERE event_id=?').get(id).n, answerCount: q ? db.prepare('SELECT count(*) AS n FROM live_responses WHERE event_id=? AND slide_index=?').get(id, row.slide_index).n : 0, question: q && { deadline: q.deadline, closed: !!q.closed_at || q.deadline <= (row.paused_at ?? now()) }, statistics: q?.statistics_visible && (slide.type === 'poll' || q.closed_at || q.deadline <= (row.paused_at ?? now())) ? statisticsFor(id, row.slide_index, slide) : null, wordCloud: slide.type === 'word-cloud' && q ? cloud(id, row.slide_index) : [], leaderboard: row.rating_enabled && row.leaderboard_published ? leaderboardFor(id, 5) : [] };
+      return { event: publicEvent(row), slide, aspectRatio: eventMaterial.aspectRatio || '16:9', slideCount: eventMaterial.slides.length, participantCount: db.prepare('SELECT count(*) AS n FROM live_participants WHERE event_id=?').get(id).n, answerCount: q ? db.prepare('SELECT count(*) AS n FROM live_responses WHERE event_id=? AND slide_index=?').get(id, row.slide_index).n : 0, question: q && { deadline: q.deadline, closed: !!q.closed_at || q.deadline <= (row.paused_at ?? now()) }, statistics: q?.statistics_visible && ['quiz', 'multi-quiz', 'poll', 'scale', 'text'].includes(slide.type) ? statisticsFor(id, row.slide_index, slide) : null, wordCloud: slide.type === 'word-cloud' && q ? cloud(id, row.slide_index) : [], leaderboard: row.rating_enabled && row.leaderboard_published ? leaderboardFor(id, 5) : [] };
     },
     getParticipant(id, token) {
       const row = event(id); const person = participant(id, token);

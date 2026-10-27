@@ -170,7 +170,7 @@ function renderFields() {
     select.addEventListener('change', () => { slide.statisticsChart = select.value; changed(); });
     setting.append(select); box.append(setting);
   }
-  if (isQuestion(slide)) { const setting = document.createElement('label'); const input = document.createElement('input'); input.type = 'checkbox'; input.checked = !!slide.showStatistics; input.addEventListener('change', () => { slide.showStatistics = input.checked; changed(); }); setting.append(input, document.createTextNode(slide.type === 'poll' ? ' Показывать статистику опроса во время ответов' : ' Показывать статистику на экране аудитории после закрытия ответов')); box.append(setting); }
+  if (isQuestion(slide)) { const hint = document.createElement('p'); hint.textContent = 'Результаты появляются на экране во время ответов. Ведущий может скрыть статистику в пульте.'; box.append(hint); }
   if (isQuestion(slide)) { const setting = document.createElement('label'); const input = document.createElement('input'); input.type = 'checkbox'; input.checked = slide.showPoints ?? ['quiz', 'multi-quiz', 'text'].includes(slide.type); input.addEventListener('change', () => { slide.showPoints = input.checked; changed(); }); setting.append(input, document.createTextNode(' Показывать баллы участнику на этом слайде')); box.append(setting); }
   if (isQuestion(slide)) { const mediaButton = document.createElement('button'); mediaButton.type = 'button'; mediaButton.textContent = 'Добавить или настроить медиа на слайде'; mediaButton.addEventListener('click', () => setTab('presentation')); box.append(mediaButton); }
   box.append(field('Заметки ведущего', 'note', 'textarea'));
