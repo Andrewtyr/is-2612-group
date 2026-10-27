@@ -89,7 +89,7 @@ async function refresh() {
     box.classList.toggle('projector-welcome', welcome);
     connection.classList.toggle('welcome-connect', welcome);
     connectionButton.hidden = welcome;
-    connection.hidden = welcome ? false : qrPreference === null ? !!data.question || !!data.slide.elements?.some((element) => element.type === 'video') : !qrPreference;
+    connection.hidden = welcome ? false : qrPreference === null ? isQuestion || !!data.slide.elements?.some((element) => element.type === 'video') : !qrPreference;
     connectionButton.textContent = connection.hidden ? 'Показать QR' : 'Скрыть QR';
     const nextKey = window.projectorRenderKey(data);
     const typography = window.projectorTypography(data.slide);

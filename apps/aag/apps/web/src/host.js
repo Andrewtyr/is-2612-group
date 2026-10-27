@@ -54,7 +54,7 @@ function render(data) {
   const interactive = ['quiz', 'multi-quiz', 'poll', 'scale', 'text', 'word-cloud'].includes(slide.type);
   $('open-question').hidden = !interactive || !!question || event.status !== 'active';
   $('close-question').hidden = !question || question.closed || event.status !== 'active';
-  $('toggle-statistics').hidden = !question || event.status === 'ended';
+  $('toggle-statistics').hidden = !['quiz', 'multi-quiz', 'poll', 'scale', 'text'].includes(slide.type) || event.status === 'ended';
   $('toggle-statistics').textContent = data.statisticsVisible ? 'Скрыть статистику' : 'Показать статистику';
   $('publish-cloud').hidden = slide.type !== 'word-cloud' || !question?.closed || question.published || event.status !== 'active';
   $('pause-button').hidden = event.status === 'ended';

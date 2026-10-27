@@ -42,6 +42,29 @@ test('a poll displays its running results on the current projector slide', () =>
   }
 });
 
+test('question statistics are visible before opening and can be hidden across opening', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'aag-preopen-statistics-'));
+  const material = { title: 'Опрос', slides: [
+    { type: 'poll', title: 'Первый вопрос', options: ['Да', 'Нет'], timeSeconds: 30 },
+    { type: 'quiz', title: 'Второй вопрос', options: ['А', 'Б'], correctIndex: 0, points: 1, timeSeconds: 30 },
+  ] };
+  const live = createLiveStore(join(directory, 'aag.sqlite'), material, () => 1000, { bannedWordsPath: join(directory, 'words.txt') });
+  try {
+    const event = live.start(1);
+    assert.equal(live.getProjector(event.id, 1).question, undefined);
+    assert.deepEqual(live.getProjector(event.id, 1).statistics, { total: 0, counts: [0, 0] });
+    assert.equal(live.getHost(event.id, 1).statisticsVisible, true);
+    live.setStatisticsVisibility(event.id, 1, false);
+    assert.equal(live.getProjector(event.id, 1).statistics, null);
+    live.open(event.id, 1);
+    assert.equal(live.getProjector(event.id, 1).statistics, null);
+    live.setStatisticsVisibility(event.id, 1, true);
+    assert.deepEqual(live.getProjector(event.id, 1).statistics, { total: 0, counts: [0, 0] });
+    live.setSlide(event.id, 1, 1);
+    assert.deepEqual(live.getProjector(event.id, 1).statistics, { total: 0, counts: [0, 0] });
+  } finally { live.close(); rmSync(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
+});
+
 for (const type of ['quiz', 'multi-quiz', 'scale']) test(`${type} streams counts before closing, even for legacy hidden settings`, () => {
   const directory = mkdtempSync(join(tmpdir(), 'aag-live-chart-'));
   const material = { title: 'Тест', slides: [{ type, title: 'Вопрос', options: ['А', 'Б'], maxValue: 2, correctIndex: 0, correctIndices: [0, 1], points: 0, timeSeconds: 30, showStatistics: false }] };
