@@ -100,6 +100,19 @@ export default function Home() {
     }
   }
 
+  async function leaveAccount() {
+    setError('');
+    try {
+      await api('/auth/logout', { method: 'POST' });
+      setUser(null);
+      setPassword('');
+      setNewPassword('');
+      window.dispatchEvent(new Event('session-changed'));
+    } catch (reason) {
+      setError((reason as Error).message);
+    }
+  }
+
   if (loading)
     return (
       <main className="shell">
@@ -183,6 +196,7 @@ export default function Home() {
           <p className="muted">
             Временный пароль нужно заменить перед началом работы.
           </p>
+          <p className="muted">Вы вошли как {user.firstName} {user.lastName}.</p>
           <form onSubmit={changePassword}>
             <label>
               Текущий пароль
@@ -206,6 +220,10 @@ export default function Home() {
             {error && <p className="error">{error}</p>}
             <button className="primary">Сохранить пароль</button>
           </form>
+          <button className="secondary password-logout" type="button" onClick={leaveAccount}>
+            Выйти и войти в другой аккаунт
+          </button>
+          <p className="muted password-help">Если текущий пароль забыт, обратитесь к администратору за новым временным паролем.</p>
         </section>
       </main>
     );

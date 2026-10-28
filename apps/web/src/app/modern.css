@@ -874,6 +874,14 @@ tbody tr:hover {
   line-height: 1.15;
   font-size: 38px;
 }
+.password-logout {
+  width: 100%;
+  margin-top: 12px;
+}
+.password-help {
+  margin-top: 16px;
+  font-size: 13px;
+}
 .cyber-safe-entry {
   display: flex;
   flex-direction: column;
