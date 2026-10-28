@@ -59,7 +59,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || user.mustChangePass) return;
     api<Lesson[]>(`/schedule/${tab}`)
       .then(setLessons)
       .catch((reason: Error) => setError(reason.message));
