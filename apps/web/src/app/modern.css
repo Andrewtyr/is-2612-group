@@ -635,6 +635,22 @@ tbody tr:hover {
   min-width: 250px;
   text-align: left;
 }
+.member-password-reset {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #f2f8f5;
+}
+.member-password-reset label {
+  display: grid;
+  gap: 6px;
+  flex: 1 1 260px;
+}
+.member-password-reset input { width: 100%; }
 .grade-preview-table select {
   max-width: 260px;
   min-width: 200px;

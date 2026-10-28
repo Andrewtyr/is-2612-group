@@ -31,6 +31,11 @@ export function prepareDailyAbsenceImport(input: unknown, members: Member[]) {
     if (membersByName.has(key)) throw new Error('В группе есть совпадающие ФИО');
     membersByName.set(key, member);
   }
+  const missing = parsed.students.flatMap((student, index) =>
+    membersByName.has(normalizedName(student.name)) ? [] : [index + 1],
+  );
+  if (missing.length)
+    throw new Error(`Студент из ведомости не найден в группе: №${missing.join(', №')}`);
   const seenStudents = new Set<string>();
   return parsed.students.flatMap((student) => {
     const key = normalizedName(student.name);

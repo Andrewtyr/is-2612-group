@@ -15,3 +15,12 @@ export function canManageUser(
     return false;
   return ['STUDENT', 'HEAD', 'DEPUTY', 'CURATOR'].includes(nextRole);
 }
+
+export function canResetStudentPassword(
+  actorRole: Role,
+  targetRole: Role,
+  self: boolean,
+): boolean {
+  return actorRole === 'ADMIN' && !self &&
+    ['STUDENT', 'HEAD', 'DEPUTY'].includes(targetRole);
+}

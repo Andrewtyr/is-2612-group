@@ -22,7 +22,7 @@ describe('paper daily absence import', () => {
       group: 'ИС-2612', dates: ['2026-10-12'],
       students: [{ name: 'Неизвестный студент', unexcused: [2], excused: [0] }],
     };
-    expect(() => prepareDailyAbsenceImport(input, members)).toThrow('не найден');
+    expect(() => prepareDailyAbsenceImport(input, members)).toThrow('№1');
     expect(() => prepareDailyAbsenceImport({
       ...input, students: [{ name: 'Иванова Анна Игоревна', unexcused: [3], excused: [0] }],
     }, members)).toThrow('чётным');

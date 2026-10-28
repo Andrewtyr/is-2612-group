@@ -17,7 +17,7 @@ import { primaryGroup } from '../../common/group';
 import type { AuthRequest } from '../../common/auth.guard';
 import { hash } from 'bcryptjs';
 import { z } from 'zod';
-import { canManageUser } from './user-policy';
+import { canManageUser, canResetStudentPassword } from './user-policy';
 
 @Controller('users')
 export class UsersController {
@@ -144,6 +144,41 @@ export class UsersController {
       });
       return updated;
     });
+  }
+
+  @Roles('ADMIN')
+  @Post(':id/reset-password')
+  async resetPassword(
+    @Req() request: AuthRequest,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
+    const { password } = parseInput(
+      z.object({ password: z.string().min(12).max(128) }), body,
+    );
+    const group = await primaryGroup(this.prisma);
+    const member = await this.prisma.groupMember.findUnique({
+      where: { groupId_userId: { groupId: group.id, userId: id } },
+      select: { user: { select: { role: true } } },
+    });
+    if (!member) throw new NotFoundException();
+    if (!canResetStudentPassword(request.user.role, member.user.role, request.user.id === id))
+      throw new ForbiddenException();
+    const passwordHash = await hash(password, 12);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id }, data: { passwordHash, mustChangePass: true },
+      });
+      await tx.auditLog.create({
+        data: {
+          userId: request.user.id,
+          action: 'USER_PASSWORD_RESET',
+          entityType: 'User',
+          entityId: id,
+        },
+      });
+    });
+    return { ok: true };
   }
 
   @Roles('CURATOR', 'ADMIN')

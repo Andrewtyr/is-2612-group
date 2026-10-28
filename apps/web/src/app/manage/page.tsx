@@ -67,6 +67,7 @@ const auditNames: Record<string, string> = {
   USER_IMPORT: 'Импортирован участник',
   USER_UPDATE: 'Изменён участник',
   USER_ROLE_CHANGE: 'Изменена роль',
+  USER_PASSWORD_RESET: 'Сброшен пароль участника',
   ATTENDANCE_MARK: 'Изменена отметка',
   ATTENDANCE_CONFIRM: 'Отметка подтверждена студентом',
   DISPUTE_RESOLVE: 'Рассмотрен спор',
@@ -96,6 +97,8 @@ export default function ManagePage() {
   const [syncState, setSyncState] = useState<SyncState | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [currentRole, setCurrentRole] = useState('');
+  const [resetTargetId, setResetTargetId] = useState('');
+  const [resetPassword, setResetPassword] = useState('');
   const [editDate, setEditDate] = useState(localDate);
   const [editableLessons, setEditableLessons] = useState<EditableLesson[]>([]);
   const [editId, setEditId] = useState('');
@@ -261,6 +264,21 @@ export default function ManagePage() {
       });
       setMessage('Данные участника обновлены');
       await refresh();
+    } catch (error) {
+      setMessage((error as Error).message);
+    }
+  }
+
+  async function resetMemberPassword(event: React.FormEvent) {
+    event.preventDefault();
+    if (!resetTargetId) return;
+    try {
+      await api(`/users/${resetTargetId}/reset-password`, {
+        method: 'POST', body: JSON.stringify({ password: resetPassword }),
+      });
+      setResetPassword('');
+      setResetTargetId('');
+      setMessage('Временный пароль установлен. Передайте его ученику лично; при входе он сменит пароль.');
     } catch (error) {
       setMessage((error as Error).message);
     }
@@ -822,7 +840,26 @@ export default function ManagePage() {
                         ? 'Заблокировать'
                         : 'Восстановить'}
                     </button>
+                    {currentRole === 'ADMIN' && ['STUDENT', 'HEAD', 'DEPUTY'].includes(member.role) && (
+                      <button className="small-button" type="button" onClick={() => {
+                        setResetPassword('');
+                        setResetTargetId(resetTargetId === member.id ? '' : member.id);
+                      }}>
+                        Сбросить пароль
+                      </button>
+                    )}
                   </div>
+                )}
+                {resetTargetId === member.id && (
+                  <form className="member-password-reset" onSubmit={resetMemberPassword}>
+                    <label>
+                      Новый временный пароль (минимум 12 символов)
+                      <input type="password" minLength={12} maxLength={128} required
+                        autoComplete="new-password" value={resetPassword}
+                        onChange={(event) => setResetPassword(event.target.value)} />
+                    </label>
+                    <button className="primary" type="submit">Установить пароль</button>
+                  </form>
                 )}
               </div>
             ))}
