@@ -100,6 +100,7 @@ export default function ReportsPage() {
         <button type="button" onClick={() => window.print()} disabled={!report}>
           Распечатать
         </button>
+        <Link className="button" href="/reports/monthly">Месячный отчёт</Link>
       </div>
       {error && <p className="notice">{error}</p>}
       {loading && <p className="muted">Загружаю отчёт…</p>}

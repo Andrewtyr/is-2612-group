@@ -10,6 +10,7 @@ import {
   Post,
   Query,
   Req,
+  Res,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { Roles } from '../../common/roles.decorator';
@@ -17,9 +18,12 @@ import { parseInput } from '../../common/input';
 import { isoDate, primaryGroup, todayInNovosibirsk } from '../../common/group';
 import { canEditAttendance } from './attendance-policy';
 import { buildWeeklyReport, weekMonday } from './weekly-report';
+import { buildMonthlyReport } from './monthly-report';
+import { renderMonthlyReportXlsx } from './monthly-report-xlsx';
 import { buildRaportMarks } from './raport-marks';
 import type { AuthRequest } from '../../common/auth.guard';
 import { z } from 'zod';
+import type { Response } from 'express';
 
 const entriesSchema = z.object({
   entries: z
@@ -58,6 +62,42 @@ const raportSchema = z.object({
 @Controller()
 export class AttendanceController {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+
+  private async reportData(from: Date, to: Date) {
+    const group = await primaryGroup(this.prisma);
+    const [members, lessons, summaries] = await Promise.all([
+      this.prisma.groupMember.findMany({
+        where: {
+          groupId: group.id,
+          user: {
+            role: { in: ['STUDENT', 'HEAD', 'DEPUTY'] },
+            status: 'ACTIVE',
+          },
+        },
+        include: {
+          user: {
+            select: {
+              id: true, firstName: true, lastName: true, middleName: true,
+            },
+          },
+        },
+        orderBy: { user: { lastName: 'asc' } },
+      }),
+      this.prisma.lesson.findMany({
+        where: { groupId: group.id, date: { gte: from, lt: to } },
+        select: { id: true, date: true, status: true },
+      }),
+      this.prisma.dailyAbsenceSummary.findMany({
+        where: { groupId: group.id, date: { gte: from, lt: to } },
+        select: { studentId: true, date: true, unexcusedHours: true, excusedHours: true },
+      }),
+    ]);
+    const marks = await this.prisma.attendance.findMany({
+      where: { lessonId: { in: lessons.map((lesson) => lesson.id) } },
+      select: { lessonId: true, studentId: true, status: true },
+    });
+    return { members: members.map(({ user }) => user), lessons, marks, summaries };
+  }
 
   @Roles('HEAD', 'DEPUTY', 'CURATOR', 'ADMIN')
   @Post('attendance/raport')
@@ -210,43 +250,39 @@ export class AttendanceController {
     const from = isoDate(monday);
     const to = new Date(from);
     to.setUTCDate(to.getUTCDate() + 7);
-    const group = await primaryGroup(this.prisma);
-    const [members, lessons] = await Promise.all([
-      this.prisma.groupMember.findMany({
-        where: {
-          groupId: group.id,
-          user: {
-            role: { in: ['STUDENT', 'HEAD', 'DEPUTY'] },
-            status: 'ACTIVE',
-          },
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              middleName: true,
-            },
-          },
-        },
-        orderBy: { user: { lastName: 'asc' } },
-      }),
-      this.prisma.lesson.findMany({
-        where: { groupId: group.id, date: { gte: from, lt: to } },
-        select: { id: true, date: true, status: true },
-      }),
-    ]);
-    const marks = await this.prisma.attendance.findMany({
-      where: { lessonId: { in: lessons.map((lesson) => lesson.id) } },
-      select: { lessonId: true, studentId: true, status: true },
-    });
+    const { members, lessons, marks, summaries } = await this.reportData(from, to);
     return buildWeeklyReport(
       monday,
-      members.map(({ user }) => user),
+      members,
       lessons,
       marks,
+      summaries,
     );
+  }
+
+  @Roles('HEAD', 'ADMIN')
+  @Get('attendance/reports/monthly.xlsx')
+  async monthlyXlsx(@Query('month') month: string | undefined, @Res() response: Response) {
+    const report = await this.monthlyReport(month);
+    const group = await primaryGroup(this.prisma);
+    const xlsx = renderMonthlyReportXlsx(report, group.name);
+    response.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    response.setHeader('Content-Disposition', `attachment; filename="attendance-${report.month}.xlsx"`);
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+    return response.send(xlsx);
+  }
+
+  @Roles('HEAD', 'ADMIN')
+  @Get('attendance/reports/monthly')
+  async monthlyReport(@Query('month') month?: string) {
+    const selected = month ?? todayInNovosibirsk().slice(0, 7);
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(selected))
+      throw new BadRequestException('Укажите месяц в формате ГГГГ-ММ');
+    const from = isoDate(`${selected}-01`);
+    const to = new Date(from);
+    to.setUTCMonth(to.getUTCMonth() + 1);
+    const { members, lessons, marks, summaries } = await this.reportData(from, to);
+    return buildMonthlyReport(selected, members, lessons, marks, summaries);
   }
 
   @Roles('HEAD', 'DEPUTY', 'CURATOR', 'ADMIN')

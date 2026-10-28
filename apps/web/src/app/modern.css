@@ -616,6 +616,25 @@ tbody tr:hover {
 .report-table th:first-child {
   font-weight: 600;
 }
+.monthly-report-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.monthly-report-table {
+  width: max-content;
+  min-width: 100%;
+  white-space: nowrap;
+}
+.monthly-report-table th,
+.monthly-report-table td {
+  min-width: 52px;
+  text-align: center;
+}
+.monthly-report-table th:nth-child(2),
+.monthly-report-table td:nth-child(2) {
+  min-width: 250px;
+  text-align: left;
+}
 .grade-preview-table select {
   max-width: 260px;
   min-width: 200px;

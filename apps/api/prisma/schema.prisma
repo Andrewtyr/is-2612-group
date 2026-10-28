@@ -66,6 +66,7 @@ model User {
   parentLinks     ParentStudent[]     @relation("Parent")
   childLinks      ParentStudent[]     @relation("Child")
   grades          GradeEntry[]        @relation("StudentGrades")
+  dailyAbsences   DailyAbsenceSummary[]
 }
 
 model Group {
@@ -79,6 +80,7 @@ model Group {
   members       GroupMember[]
   lessons       Lesson[]
   bellSchedules BellSchedule[]
+  dailyAbsences DailyAbsenceSummary[]
 }
 
 model GroupMember {
@@ -289,4 +291,21 @@ model GradeEntry {
 
   @@unique([studentId, subject, date, columnIndex])
   @@index([studentId, subject])
+}
+
+model DailyAbsenceSummary {
+  id              String   @id @default(cuid())
+  groupId         String
+  studentId       String
+  date            DateTime @db.Date
+  unexcusedHours  Int
+  excusedHours    Int
+  source          String   @default("paper")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  group           Group    @relation(fields: [groupId], references: [id])
+  student         User     @relation(fields: [studentId], references: [id])
+
+  @@unique([groupId, studentId, date])
+  @@index([groupId, date])
 }
