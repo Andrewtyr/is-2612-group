@@ -76,8 +76,12 @@ export default function Navigation() {
       : [{ href: '/grades', label: 'Мои оценки', icon: 'book' }]),
     { href: '/notifications', label: 'Уведомления', icon: 'bell' },
     { href: '/attendance', label: 'Посещаемость', icon: 'chart' },
-    { href: '/cyber-safe', label: 'Игра CYBER SAFE', icon: 'game' },
-    { href: '/aag', label: 'ААГ Интерактив', icon: 'game' },
+    ...(['CURATOR', 'ADMIN'].includes(user.role)
+      ? [
+          { href: '/cyber-safe', label: 'Игра CYBER SAFE', icon: 'game' },
+          { href: '/aag', label: 'ААГ Интерактив', icon: 'game' },
+        ]
+      : []),
     ...(['HEAD', 'DEPUTY'].includes(user.role)
       ? [{ href: '/grades', label: 'Мои оценки', icon: 'book' }]
       : []),
