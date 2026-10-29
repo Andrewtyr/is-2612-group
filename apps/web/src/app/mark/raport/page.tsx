@@ -259,13 +259,13 @@ export default function RaportPage() {
               type="button"
               onClick={() => {
                 setRows((current) => [
-                  ...current,
                   {
                     key: nextKey,
                     studentId: '',
                     lessonIds: [],
                     status: 'ABSENT',
                   },
+                  ...current,
                 ]);
                 setNextKey((value) => value + 1);
                 setConfirmed(false);
