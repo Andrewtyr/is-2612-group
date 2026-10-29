@@ -309,6 +309,21 @@ export default function RaportPage() {
                   <option value="EXCUSED">Болезнь / уважительная</option>
                 </select>
                 <button
+                  className="secondary raport-all-lessons"
+                  type="button"
+                  disabled={
+                    selected.length === 0 ||
+                    selected.every((lesson) => row.lessonIds.includes(lesson.id))
+                  }
+                  onClick={() =>
+                    updateRow(row.key, {
+                      lessonIds: selected.map((lesson) => lesson.id),
+                    })
+                  }
+                >
+                  Не был на всех выбранных парах
+                </button>
+                <button
                   className="secondary"
                   type="button"
                   onClick={() => {

@@ -526,6 +526,10 @@ input::file-selector-button {
   border: 1px solid var(--line);
   border-radius: 11px;
 }
+.raport-all-lessons {
+  min-height: 44px;
+  color: var(--accent);
+}
 .raport-summary {
   display: grid;
   gap: 10px;
